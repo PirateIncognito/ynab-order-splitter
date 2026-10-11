@@ -1,0 +1,379 @@
+{
+  "last_scraped_at": null,
+  "scraped_years": [],
+  "charges_from": null,
+  "orders": [
+    {
+      "order_number": "100-0000001-0000000",
+      "order_placed_date": "2023-11-26",
+      "grand_total": 103.49,
+      "subtotal": 96.72,
+      "shipping_total": 0.0,
+      "free_shipping": null,
+      "promotion_applied": null,
+      "coupon_savings": null,
+      "subscription_discount": null,
+      "multibuy_discount": null,
+      "amazon_discount": null,
+      "reward_points": null,
+      "gift_card": null,
+      "gift_wrap": null,
+      "total_before_tax": 96.72,
+      "estimated_tax": 6.77,
+      "refund_total": null,
+      "payment_method": "Card",
+      "payment_method_last_4": "0000",
+      "cancelled": false,
+      "items": [
+        {
+          "title": "Item 1",
+          "price": 26.99,
+          "quantity": null,
+          "asin": "B000000001"
+        },
+        {
+          "title": "Item 2",
+          "price": 12.99,
+          "quantity": null,
+          "asin": "B000000002"
+        },
+        {
+          "title": "Item 3",
+          "price": 24.99,
+          "quantity": null,
+          "asin": "B000000003"
+        },
+        {
+          "title": "Item 4",
+          "price": 11.78,
+          "quantity": null,
+          "asin": "B000000004"
+        },
+        {
+          "title": "Item 5",
+          "price": 19.97,
+          "quantity": null,
+          "asin": "B000000005"
+        }
+      ],
+      "shipments": [
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 6",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000001"
+            },
+            {
+              "title": "Item 7",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000004"
+            }
+          ]
+        },
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 8",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000002"
+            }
+          ]
+        },
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 9",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000003"
+            }
+          ]
+        },
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 10",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000005"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order_number": "100-0000002-0000000",
+      "order_placed_date": "2024-02-19",
+      "grand_total": 27.58,
+      "subtotal": 25.78,
+      "shipping_total": 0.0,
+      "free_shipping": null,
+      "promotion_applied": null,
+      "coupon_savings": null,
+      "subscription_discount": null,
+      "multibuy_discount": null,
+      "amazon_discount": null,
+      "reward_points": null,
+      "gift_card": null,
+      "gift_wrap": null,
+      "total_before_tax": 25.78,
+      "estimated_tax": 1.8,
+      "refund_total": 22.17,
+      "payment_method": "Card",
+      "payment_method_last_4": "0000",
+      "cancelled": false,
+      "items": [
+        {
+          "title": "Item 11",
+          "price": 14.99,
+          "quantity": null,
+          "asin": "B000000006"
+        },
+        {
+          "title": "Item 12",
+          "price": 5.73,
+          "quantity": null,
+          "asin": "B000000007"
+        },
+        {
+          "title": "Item 13",
+          "price": 5.06,
+          "quantity": null,
+          "asin": "B000000008"
+        }
+      ],
+      "shipments": [
+        {
+          "delivery_status": "Return complete",
+          "items": [
+            {
+              "title": "Item 14",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000007"
+            }
+          ]
+        },
+        {
+          "delivery_status": "Return complete",
+          "items": [
+            {
+              "title": "Item 15",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000006"
+            }
+          ]
+        },
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 16",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000008"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order_number": "100-0000003-0000000",
+      "order_placed_date": "2022-07-26",
+      "grand_total": 65.78,
+      "subtotal": 64.98,
+      "shipping_total": 0.0,
+      "free_shipping": null,
+      "promotion_applied": null,
+      "coupon_savings": -3.5,
+      "subscription_discount": null,
+      "multibuy_discount": null,
+      "amazon_discount": null,
+      "reward_points": null,
+      "gift_card": null,
+      "gift_wrap": null,
+      "total_before_tax": 61.48,
+      "estimated_tax": 4.3,
+      "refund_total": null,
+      "payment_method": "Card",
+      "payment_method_last_4": "0000",
+      "cancelled": false,
+      "items": [
+        {
+          "title": "Item 17",
+          "price": 29.99,
+          "quantity": null,
+          "asin": "B000000009"
+        },
+        {
+          "title": "Item 18",
+          "price": 34.99,
+          "quantity": null,
+          "asin": "B000000010"
+        }
+      ],
+      "shipments": [
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 19",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000009"
+            }
+          ]
+        },
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 20",
+              "price": null,
+              "quantity": null,
+              "asin": "B000000010"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order_number": "100-0000004-0000000",
+      "order_placed_date": "2025-07-04",
+      "grand_total": 34.67,
+      "subtotal": 27.96,
+      "shipping_total": 4.74,
+      "free_shipping": null,
+      "promotion_applied": null,
+      "coupon_savings": null,
+      "subscription_discount": null,
+      "multibuy_discount": null,
+      "amazon_discount": null,
+      "reward_points": null,
+      "gift_card": null,
+      "gift_wrap": null,
+      "total_before_tax": 32.7,
+      "estimated_tax": 1.97,
+      "refund_total": null,
+      "payment_method": "Card",
+      "payment_method_last_4": "0000",
+      "cancelled": false,
+      "items": [
+        {
+          "title": "Item 21",
+          "price": 5.99,
+          "quantity": 2,
+          "asin": "B000000011"
+        },
+        {
+          "title": "Item 22",
+          "price": 7.99,
+          "quantity": 2,
+          "asin": "B000000012"
+        }
+      ],
+      "shipments": [
+        {
+          "delivery_status": null,
+          "items": [
+            {
+              "title": "Item 23",
+              "price": null,
+              "quantity": 2,
+              "asin": "B000000011"
+            },
+            {
+              "title": "Item 24",
+              "price": null,
+              "quantity": 2,
+              "asin": "B000000012"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "charges": [
+    {
+      "order_number": "100-0000001-0000000",
+      "completed_date": "2023-12-02",
+      "grand_total": -26.74,
+      "is_refund": false,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    },
+    {
+      "order_number": "100-0000001-0000000",
+      "completed_date": "2023-12-01",
+      "grand_total": -33.97,
+      "is_refund": false,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    },
+    {
+      "order_number": "100-0000001-0000000",
+      "completed_date": "2023-11-30",
+      "grand_total": -42.78,
+      "is_refund": false,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    },
+    {
+      "order_number": "100-0000002-0000000",
+      "completed_date": "2024-03-30",
+      "grand_total": 16.04,
+      "is_refund": true,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    },
+    {
+      "order_number": "100-0000002-0000000",
+      "completed_date": "2024-03-29",
+      "grand_total": 6.13,
+      "is_refund": true,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    },
+    {
+      "order_number": "100-0000002-0000000",
+      "completed_date": "2024-02-21",
+      "grand_total": -27.58,
+      "is_refund": false,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    },
+    {
+      "order_number": "100-0000003-0000000",
+      "completed_date": "2022-07-29",
+      "grand_total": -65.78,
+      "is_refund": false,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    },
+    {
+      "order_number": "100-0000004-0000000",
+      "completed_date": "2025-07-05",
+      "grand_total": -34.67,
+      "is_refund": false,
+      "payment_method": "Card ****0001",
+      "payment_method_last_4": "0001",
+      "seller": "Seller"
+    }
+  ]
+}

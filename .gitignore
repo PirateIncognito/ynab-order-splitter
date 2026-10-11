@@ -1,0 +1,65 @@
+# Secrets
+.env
+plugins/*/.env
+# Persisted vendor login sessions (e.g. plugins/amazon.com/.amazon_cookies.json)
+plugins/*/.*_cookies.json
+
+# Backups made by devtools/reset-to-fresh.py -- still secrets
+.env.bak
+plugins/*/.env.bak
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# User data / prefs are not secrets but are per-install state
+core/user_prefs.json
+plugins/*/*_user_prefs.json
+
+# YNAB categories, fetched again on each match run
+core/ynab_categories.json
+
+# Each plugin's match results (core/match.py)
+plugins/*/*_ynab_matched.json
+
+# Each plugin's approved transactions waiting to be written to YNAB (core/push.py)
+plugins/*/*_ynab_approved.json
+
+# Each plugin's item -> category table (core/review.py) -- built from order data
+plugins/*/*_categories.json
+
+# Vendor order data (per-install scraped data)
+plugins/*/*_order_data.json
+
+# amazon-orders debug snapshots (AmazonSession(debug=True) in plugin.py) --
+# HTML/screenshots of the actual logged-in Amazon session, not just scratch data
+/output/
+
+# Status message log (core/main.py _setup_logging)
+ynabuddy.log
+
+# OS
+.DS_Store
+
+# amazon-orders CLI exports (`amazon-orders history --output ...`) -- real order data
+/orders.csv
+/orders.json
+/output.json
+
+
+# a copy of real categories at the repo root (was used by the deleted testbed demos)
+/ynab_categories.json
+
+# Personal, not published: the user's own tools (with their data and ids)
+# and the AI workflow (CLAUDE.md, STANDARDS.md, agents, hooks and settings,
+# task briefs, orchestration log, release files for the public repo,
+# the plan and the spec)
+/devtools/
+/orchestration/
+/.claude/
+/STANDARDS.md
+/release/
+/PLAN.md
+/my-ynab-tool.md

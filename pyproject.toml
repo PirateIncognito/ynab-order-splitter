@@ -1,0 +1,27 @@
+[project]
+name = "ynabuddy"
+version = "0.1.0"
+description = "YNAB Buddy - console app that matches vendor order data to YNAB transactions and splits/categorizes them"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ynab",
+    "python-dotenv",
+    "anthropic",
+    "amazon-orders[browser]>=4.8.0",
+    "questionary>=2.1.1",
+    "tabulate>=0.10.0",
+    "openai>=3.26.0",
+    "google-genai>=2.28.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
