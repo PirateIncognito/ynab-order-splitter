@@ -216,12 +216,11 @@ def run_cycle_for_plugin(plugin: VendorPlugin) -> None:
     try:
         categories = fetch_categories(token, budget_id)
         log.info(f"Saved {len(categories)} categories to {CATEGORIES_PATH.name}.")
-        payees = ynab_client.list_payees(token, budget_id)
         results_path = match_transactions_for_plugin(token, budget_id, plugin, lookback_margin_days, window_days)
         split.split_transactions(results_path, core_prefs["split_sales_tax_line"], core_prefs["sales_tax_category_id"])
         time.sleep(1)  # let the summaries be read before the review screen clears them
         review.review_transactions(
-            results_path, categories, payees, plugin.categories_path, plugin.approved_path, categorize.chosen_ask()
+            results_path, categories, plugin.categories_path, plugin.approved_path, categorize.chosen_ask()
         )
         push.push_approved(plugin.approved_path, token, budget_id)
     except ApiException as e:
@@ -251,21 +250,14 @@ def has_last_results(plugin: VendorPlugin) -> bool:
 
 def review_last_results(plugin: VendorPlugin) -> None:
     """Review the results saved by `plugin`'s last Match and Split run again,
-    with the categories saved then and the budget's payees fetched now (no
-    vendor calls, no re-matching or re-splitting), if any are left to
-    approve, then offer to push the approved ones to YNAB. The menu offers
-    it only when has_last_results()."""
+    with the categories saved then (no vendor calls, no re-matching or
+    re-splitting), if any are left to approve, then offer to push the
+    approved ones to YNAB. The menu offers it only when has_last_results()."""
     budget_id = user_prefs.load_user_prefs().get("ynab_budget_id")
     token = config.get_ynab_access_token()
     if _has_results_to_review(plugin, budget_id):
         categories = [ynab_client.Category(**c) for c in json.loads(CATEGORIES_PATH.read_text())["categories"]]
-        try:
-            payees = ynab_client.list_payees(token, budget_id)
-        except ApiException as e:
-            log.error(f"Failed review of last results: YNAB API error: {ynab_client.describe_api_error(e)}")
-            return
         review.review_transactions(
-            plugin.matched_path, categories, payees, plugin.categories_path, plugin.approved_path,
-            categorize.chosen_ask(),
+            plugin.matched_path, categories, plugin.categories_path, plugin.approved_path, categorize.chosen_ask()
         )
     push.push_approved(plugin.approved_path, token, budget_id)

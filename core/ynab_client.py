@@ -31,12 +31,6 @@ class Category:
     group_name: str
 
 
-@dataclass
-class Payee:
-    id: str
-    name: str
-
-
 def _client(access_token: str) -> ynab.ApiClient:
     return ynab.ApiClient(ynab.Configuration(access_token=access_token))
 
@@ -84,16 +78,6 @@ def list_categories(access_token: str, budget_id: str) -> list[Category]:
         if not group.deleted and not group.internal and not group.hidden
         for c in group.categories
         if not c.deleted and not c.hidden
-    ]
-
-
-def list_payees(access_token: str, budget_id: str) -> list[Payee]:
-    """The budget's payees, leaving out deleted ones and transfer payees
-    (giving a transaction one of those would make it a transfer)."""
-    with _client(access_token) as client:
-        response = ynab.PayeesApi(client).get_payees(budget_id)
-    return [
-        Payee(id=str(p.id), name=p.name) for p in response.data.payees if not p.deleted and not p.transfer_account_id
     ]
 
 

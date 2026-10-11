@@ -1,21 +1,23 @@
 """Review screen: one screen per split transaction in
 <plugin>_ynab_matched.json, newest first, where the user categorizes its split
-lines (dividing a line into two halves for two categories), optionally picks
-another of the budget's YNAB payees for it, and approves or skips it, a
-single key press each.
+lines (dividing a line into two halves for two categories, or merging
+the lines of one category into one; [u] undoes the last edit, divide or
+merge), and approves or skips it, a single key press each.
 
 Uncategorized lines are filled from the plugin's category table (item
 description -> {"category": id, "by": "user" | "agent"}). Every category
 the user sets, and every line of a transaction they approve, is written
-to the table as "user", so a repeat purchase needs only [a]. With AI on,
+to the table as "user" (for a merged line, its items, on [a] only), so a
+repeat purchase needs only [a]. With AI on,
 core/categorize.py fills in the rest of the table in the background. The
 outcome ("review_status": approved / skipped, and for a transaction with nothing to
-split its "review_category_id", and a picked payee's "review_payee_id") is
+split its "review_category_id") is
 saved into each transaction, and each approved transaction is queued for
 core/push.py to write to YNAB.
 """
 
 import collections
+import copy
 import json
 import logging
 from collections.abc import Callable
@@ -23,7 +25,7 @@ from pathlib import Path
 
 from core import categorize, push, ui
 from core.milliunits import milliunits_to_dollars
-from core.ynab_client import Category, Payee
+from core.ynab_client import Category
 
 # Each split line's label and key on the review screen: 1-9, then letters
 # (no a -- all rows, no q -- it backs out). Longer splits are numbered and
@@ -64,15 +66,15 @@ def prefill(transaction: dict, table: dict[str, dict], names: dict[str, str]) ->
 
 def set_category(transaction: dict, line_number: int, category_id: str, table: dict[str, dict]) -> None:
     """Give split line `line_number` (from 1) `category_id` and write it to
-    `table` for that line's description (not for the sales tax line or a
-    line with none), set by the user. A transaction with nothing to split
-    gets the category as a whole."""
+    `table` for that line's description (not for the sales tax line, a
+    line with none or a merged line), set by the user. A transaction with
+    nothing to split gets the category as a whole."""
     if not transaction["split_lines"]:
         transaction["review_category_id"] = category_id
         return
     line = transaction["split_lines"][line_number - 1]
     line["category_id"] = category_id
-    if line["memo"] not in categorize.NOT_ITEMS:
+    if line["memo"] not in categorize.NOT_ITEMS and "items" not in line:
         table[line["memo"]] = {"category": category_id, "by": "user"}
 
 
@@ -95,13 +97,12 @@ def _money(milliunits: int) -> str:
     return f"{milliunits_to_dollars(milliunits):,.2f}"
 
 
-def _draw(t: dict, position: int, total: int, names: dict[str, str], payee_names: dict[str, str]) -> None:
+def _draw(t: dict, position: int, total: int, names: dict[str, str]) -> None:
     ui.clear_screen()
     ui.show_background_messages()
     amount = t["amount"]
-    payee = payee_names.get(t.get("review_payee_id"), t["payee_name"])
     print(ui.styled([
-        ("title", f"[{position}/{total}]  {t['date']}  {payee}  "),
+        ("title", f"[{position}/{total}]  {t['date']}  {t['payee_name']}  "),
         ("out" if amount < 0 else "in", _money(amount)),
         ("muted", f"  order {t['vendor_match']['source_id'] or '(none)'}"),
     ]))
@@ -142,14 +143,14 @@ def _ask_row(count: int, with_all: bool) -> int | str | None:
     return 1
 
 
-def _edit(transaction: dict, labels: dict[str, str], names: dict[str, str], table: dict[str, dict]) -> None:
+def _edit(transaction: dict, labels: dict[str, str], names: dict[str, str], table: dict[str, dict]) -> bool:
     """Ask which line to categorize (if there is a choice), or a for every
     item line (not the sales tax line), then its category; other lines with
-    the same description get it too. q or Esc at the line, or an empty
-    category, backs out."""
+    the same description get it too. False if q or Esc at the line, or an
+    empty category, backs out."""
     row = _ask_row(len(transaction["split_lines"]), with_all=True)
     if row is None:
-        return
+        return False
     items = [n for n, line in enumerate(transaction["split_lines"], 1) if line["memo"] != categorize.SALES_TAX]
     line_numbers = items if row == "a" else [row]
     answer = ui.autocomplete(
@@ -158,21 +159,23 @@ def _edit(transaction: dict, labels: dict[str, str], names: dict[str, str], tabl
         validate=lambda s: not s.strip() or find_category(s, labels) is not None
         or "Type more, or pick a category from the list.",
     )
-    if answer and answer.strip():
-        category_id = find_category(answer, labels)
-        with categorize.lock:
-            for line_number in line_numbers:
-                set_category(transaction, line_number, category_id, table)
-        prefill(transaction, table, names)
+    if not answer or not answer.strip():
+        return False
+    category_id = find_category(answer, labels)
+    with categorize.lock:
+        for line_number in line_numbers:
+            set_category(transaction, line_number, category_id, table)
+    prefill(transaction, table, names)
+    return True
 
 
-def _divide(transaction: dict) -> None:
+def _divide(transaction: dict) -> bool:
     """Ask which line to divide (if there is a choice), or a for every line
     but the sales tax line, and replace each with two lines next to each
     other, each half its amount in whole cents (the first takes an odd
     cent), with its memo and category. A transaction with nothing to split
     becomes two lines of its whole amount, with its category and no memo.
-    q or Esc backs out."""
+    False if q or Esc backs out."""
     lines = transaction["split_lines"]
     if not lines:
         lines.append(
@@ -180,55 +183,111 @@ def _divide(transaction: dict) -> None:
         )
     row = _ask_row(len(lines), with_all=True)
     if row is None:
-        return
+        return False
     rows = [n for n, line in enumerate(lines, 1) if line["memo"] != categorize.SALES_TAX] if row == "a" else [row]
     for n in reversed(rows):  # from the end, so the rows before keep their numbers
         line = lines[n - 1]
         half = abs(line["amount"]) // 20 * 10
         second = -half if line["amount"] < 0 else half
         lines[n - 1:n] = [{**line, "amount": line["amount"] - second}, {**line, "amount": second}]
+    return True
 
 
-def _pick_payee(transaction: dict, payee_ids: dict[str, str]) -> None:
-    """Ask for one of the budget's payees (name -> id in `payee_ids`) and
-    give `transaction` that payee; an empty answer backs out."""
-    ids = {name.strip().lower(): payee_id for name, payee_id in payee_ids.items()}
-    answer = ui.autocomplete(
-        "Payee (Enter on empty to go back):",
-        list(payee_ids),
-        validate=lambda s: not s.strip() or s.strip().lower() in ids or "Pick a payee from the list.",
-    )
-    if answer and answer.strip():
-        transaction["review_payee_id"] = ids[answer.strip().lower()]
+def _merge(transaction: dict, names: dict[str, str]) -> bool:
+    """Merge the split lines that share a category (one of `names`) into
+    one line in the first one's place, with their summed amount, their
+    distinct item names (categorize.item_names) as "items" and those
+    joined by ", " as its memo; uncategorized lines stay as they are.
+    False if no two lines share a category."""
+    lines = transaction["split_lines"]
+    groups = collections.defaultdict(list)
+    for line in lines:
+        if line["category_id"] in names:
+            groups[line["category_id"]].append(line)
+    if all(len(group) == 1 for group in groups.values()):
+        return False
+    merged = []
+    for line in lines:
+        group = groups.get(line["category_id"], [line])
+        if len(group) == 1:
+            merged.append(line)
+        elif group[0] is line:
+            items = list(dict.fromkeys(item for other in group for item in categorize.item_names(other)))
+            merged.append({**line, "amount": sum(other["amount"] for other in group), "memo": ", ".join(items),
+                           "items": items})
+    with categorize.lock:
+        lines[:] = merged
+    return True
 
 
 def _review_one(transaction: dict, position: int, total: int, labels: dict[str, str], names: dict[str, str],
-                table: dict[str, dict], payee_ids: dict[str, str], payee_names: dict[str, str]) -> str | None:
+                table: dict[str, dict]) -> str | None:
     """Show `transaction` until the user approves or skips it ("approved" /
-    "skipped"); None if they quit."""
-    _draw(transaction, position, total, names, payee_names)
+    "skipped"); None if they quit. [u] undoes this screen's [e]dits,
+    [d]ivides and [m]erges, last first, back to how the screen began (in
+    memory only; an undone [e] also takes its category back out of the table)."""
+    undo = []  # (split_lines, review_category_id, table entries of its items) before each [e], [d] or [m]
+    _draw(transaction, position, total, names)
     while True:
-        key = ui.key("[a]pprove  [e]dit  [d]ivide  [p]ayee  [o]pen order in browser  [s]kip  [q]uit", "aedposq")
+        key = ui.key(
+            "\n".join([
+                "[a] approve",
+                "[e] edit category",
+                "[s] skip",
+                "[m] merge identical categories",
+                "[d] divide (split a sub-transaction in half)",
+                "[u] undo last change",
+                "[o] open order in browser",
+                "[q] quit",
+            ]),
+            "aesmduoq",
+        )
         if key == "a":
             missing = missing_categories(transaction, names)
             if not missing:
                 return "approved"
             print(f"Can't approve yet, no category on {missing}.")
-        elif key == "e":
-            _edit(transaction, labels, names, table)
-            _draw(transaction, position, total, names, payee_names)
-        elif key == "d":
-            _divide(transaction)
-            _draw(transaction, position, total, names, payee_names)
-        elif key == "p":
-            _pick_payee(transaction, payee_ids)
-            _draw(transaction, position, total, names, payee_names)
+        elif key in ("e", "d", "m"):
+            with categorize.lock:  # all the step can change, for [u]
+                before = (copy.deepcopy(transaction["split_lines"]), transaction.get("review_category_id"),
+                          {name: table.get(name) for line in transaction["split_lines"]
+                           for name in categorize.item_names(line)})
+            if key == "e":
+                changed = _edit(transaction, labels, names, table)
+            elif key == "d":
+                changed = _divide(transaction)
+            else:
+                changed = _merge(transaction, names)
+            if changed:
+                undo.append(before)
+            if changed or key != "m":
+                _draw(transaction, position, total, names)
+            else:
+                print("Nothing to merge: no two lines share a category.")
+        elif key == "u":
+            if undo:
+                lines, category_id, entries = undo.pop()
+                with categorize.lock:
+                    transaction["split_lines"][:] = lines
+                    if category_id is None:
+                        transaction.pop("review_category_id", None)
+                    else:
+                        transaction["review_category_id"] = category_id
+                    for name, entry in entries.items():
+                        if entry is None:
+                            table.pop(name, None)
+                        else:
+                            table[name] = entry
+                prefill(transaction, table, names)
+                _draw(transaction, position, total, names)
+            else:
+                print("Nothing to undo.")
         elif key == "o":
             link = transaction["vendor_match"].get("link")
             if not link:
                 print("No order page for this transaction.")
             elif ui.open_in_browser(link):
-                _draw(transaction, position, total, names, payee_names)
+                _draw(transaction, position, total, names)
             else:
                 print("Couldn't open a browser.")
         elif key == "s":
@@ -237,11 +296,10 @@ def _review_one(transaction: dict, position: int, total: int, labels: dict[str, 
             return None
 
 
-def review_transactions(results_path: Path, categories: list[Category], payees: list[Payee], table_path: Path,
-                        approved_path: Path, ask: Callable[[str, str, dict], dict] | None) -> None:
+def review_transactions(results_path: Path, categories: list[Category], table_path: Path, approved_path: Path,
+                        ask: Callable[[str, str, dict], dict] | None) -> None:
     """Review every split transaction in `results_path` (<plugin>_ynab_matched.json)
-    not approved yet, newest first, until the user quits, with `payees` to
-    pick from (kept in memory only); save the outcomes
+    not approved yet, newest first, until the user quits; save the outcomes
     and the plugin's category table (`table_path`), and queue each approved
     transaction in `approved_path` as it is approved. With `ask` (an
     agents.ask_* function; None for AI off), the agent categorizes the
@@ -250,8 +308,6 @@ def review_transactions(results_path: Path, categories: list[Category], payees: 
     table = json.loads(table_path.read_text()) if table_path.exists() else {}
     labels = {f"{c.group_name}: {c.name}": c.id for c in categories}
     names = {category_id: label for label, category_id in labels.items()}
-    payee_ids = {p.name: p.id for p in payees}
-    payee_names = {p.id: p.name for p in payees}
     split = [t for t in data["transactions"] if "split_status" in t]
     to_review = sorted(left_to_review(data["transactions"]), key=lambda t: t["date"], reverse=True)
 
@@ -264,13 +320,11 @@ def review_transactions(results_path: Path, categories: list[Category], payees: 
         for position, t in enumerate(to_review, 1):
             if agent:
                 try:
-                    agent.wait([line["memo"] for line in t["split_lines"]])
+                    agent.wait([item for line in t["split_lines"] for item in categorize.item_names(line)])
                 except KeyboardInterrupt:  # Ctrl+C while waiting: quit, as at the prompt
                     break
             prefill(t, table, names)
-            if t.get("review_payee_id") not in payee_names:  # deleted or merged in YNAB since it was picked
-                t.pop("review_payee_id", None)
-            outcome = _review_one(t, position, len(to_review), labels, names, table, payee_ids, payee_names)
+            outcome = _review_one(t, position, len(to_review), labels, names, table)
             if outcome is None:
                 break
             t["review_status"] = outcome
@@ -278,8 +332,8 @@ def review_transactions(results_path: Path, categories: list[Category], payees: 
                 push.queue(approved_path, data["budget_id"], t)
                 with categorize.lock:
                     for line in t["split_lines"]:
-                        if line["memo"] not in categorize.NOT_ITEMS:
-                            table[line["memo"]] = {"category": line["category_id"], "by": "user"}
+                        for item in categorize.item_names(line):
+                            table[item] = {"category": line["category_id"], "by": "user"}
     finally:  # keep what was done, even if the review fails partway
         if agent:
             agent.stopped = True

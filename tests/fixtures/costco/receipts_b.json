@@ -1,0 +1,182 @@
+[
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000001",
+    "transactionDate": "2026-03-02",
+    "transactionDateTime": "2026-03-02T10:15:00",
+    "transactionType": "Sales",
+    "total": 10.78,
+    "subTotal": 9.98,
+    "taxes": 0.8,
+    "instantSavings": 3.5,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 101,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 3,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": 0.8,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [
+      {
+        "upcnumberCoupon": "0000000000",
+        "amountCoupon": null,
+        "voidflagCoupon": null
+      }
+    ],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": 10.78,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": [
+      {
+        "itemNumber": "111111",
+        "itemDescription01": "KS WATER 40PK ",
+        "itemDescription02": null,
+        "amount": 4.99,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "222222",
+        "itemDescription01": "/111111",
+        "itemDescription02": null,
+        "amount": -1.5,
+        "unit": -1,
+        "taxFlag": null,
+        "frenchItemDescription1": null,
+        "itemIdentifier": null,
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "333333",
+        "itemDescription01": "FREEBIE",
+        "itemDescription02": null,
+        "amount": 2.0,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "444444",
+        "itemDescription01": "/333333",
+        "itemDescription02": null,
+        "amount": -2.0,
+        "unit": -1,
+        "taxFlag": null,
+        "frenchItemDescription1": null,
+        "itemIdentifier": null,
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "555555",
+        "itemDescription01": "EGGS 24CT",
+        "itemDescription02": null,
+        "amount": 6.49,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      }
+    ]
+  },
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000007",
+    "transactionDate": "2026-04-05",
+    "transactionDateTime": "2026-04-05T11:00:00",
+    "transactionType": "Sales",
+    "total": 4.99,
+    "subTotal": 4.99,
+    "taxes": 0.0,
+    "instantSavings": 0,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 107,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 1,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": 0.0,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": 4.99,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": [
+      {
+        "itemNumber": "121212",
+        "itemDescription01": "ROTISSERIE CHICKEN",
+        "itemDescription02": null,
+        "amount": 4.99,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      }
+    ]
+  }
+]

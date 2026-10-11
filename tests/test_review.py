@@ -1,3 +1,4 @@
+import copy
 import io
 import itertools
 import json
@@ -15,7 +16,7 @@ from prompt_toolkit.output.vt100 import Vt100_Output
 from tabulate import tabulate
 
 from core import categorize, review, ui
-from core.ynab_client import Category, Payee
+from core.ynab_client import Category
 
 CATEGORIES = [
     Category(id="groceries", name="Groceries", group_name="Food"),
@@ -24,8 +25,6 @@ CATEGORIES = [
     Category(id="supplies", name="Supplies", group_name="Home"),
 ]
 LABELS = {f"{c.group_name}: {c.name}": c.id for c in CATEGORIES}
-PAYEES = [Payee(id="p-whole-foods", name="Whole Foods"), Payee(id="p-amazon", name="Amazon"),
-          Payee(id="p-costco", name="Costco ")]
 
 
 _ids = itertools.count()
@@ -61,7 +60,7 @@ def _review(tmp_path, monkeypatch, transactions: list[dict], keys: list[str], ty
         assert wait_for(predicate, timeout=5), "still waiting for the agent"
         return True
     monkeypatch.setattr(categorize.lock, "wait_for", bounded_wait_for)
-    review.review_transactions(path, CATEGORIES, PAYEES, tmp_path / "amazon.com_categories.json",
+    review.review_transactions(path, CATEGORIES, tmp_path / "amazon.com_categories.json",
                                tmp_path / "amazon.com_ynab_approved.json", ask)
     for thread in threading.enumerate():  # let the agent finish its call and log within the test
         if thread.name == "AI agent":
@@ -160,10 +159,10 @@ def test_lines_past_nine_are_picked_by_letter_without_q(tmp_path, monkeypatch):
 
 def test_table_columns_long_items_and_whole_transaction(monkeypatch, capsys):
     monkeypatch.setattr(ui, "clear_screen", lambda: None)
-    review._draw(_transaction("x" * (review.ITEM_WIDTH + 5)), 1, 2, {}, {})
+    review._draw(_transaction("x" * (review.ITEM_WIDTH + 5)), 1, 2, {})
     whole = _transaction()
     whole["amount"] = -5000
-    review._draw(whole, 2, 2, {}, {})
+    review._draw(whole, 2, 2, {})
     screen = re.sub(r"\033\[[0-9;]*m", "", capsys.readouterr().out).splitlines()
 
     assert [line.split() for line in screen if "Item" in line] == [["#", "Item", "Category", "Amount"]] * 2
@@ -179,40 +178,6 @@ def test_approving_queues_the_transaction_for_ynab_and_skipping_does_not(tmp_pat
     assert entry["id"] == approved["id"]
     assert entry["budget_id"] == "budget-1"
     assert entry["split_lines"] == [{"amount": -1000, "memo": "Mop", "category_id": "supplies"}]
-
-
-def test_a_picked_payee_is_shown_and_queued_for_ynab(tmp_path, monkeypatch, capsys):
-    [t] = _review(tmp_path, monkeypatch, [_transaction("Mop")], keys=["p", "e", "a"], typed=["whole foods", "home"])
-
-    assert "Whole Foods  -1.00" in re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
-    assert t["review_payee_id"] == "p-whole-foods"
-    [entry] = json.loads((tmp_path / "amazon.com_ynab_approved.json").read_text())
-    assert entry["payee_id"] == "p-whole-foods"
-
-
-def test_an_empty_payee_answer_changes_nothing(tmp_path, monkeypatch):
-    [t] = _review(tmp_path, monkeypatch, [_transaction("Mop")], keys=["p", "e", "a"], typed=["", "home"])
-
-    assert "review_payee_id" not in t
-    [entry] = json.loads((tmp_path / "amazon.com_ynab_approved.json").read_text())
-    assert entry["payee_id"] is None
-
-
-def test_a_payee_name_with_a_trailing_space_can_be_picked(tmp_path, monkeypatch):
-    [t] = _review(tmp_path, monkeypatch, [_transaction("Mop")], keys=["p", "s"], typed=["costco"])
-
-    assert t["review_payee_id"] == "p-costco"
-
-
-def test_a_picked_payee_no_longer_in_ynab_is_dropped(tmp_path, monkeypatch, capsys):
-    t = _transaction("Mop")
-    t["review_payee_id"] = "p-merged-away"
-    [t] = _review(tmp_path, monkeypatch, [t], keys=["e", "a"], typed=["home"])
-
-    assert "Amazon  -1.00" in re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
-    assert "review_payee_id" not in t
-    [entry] = json.loads((tmp_path / "amazon.com_ynab_approved.json").read_text())
-    assert entry["payee_id"] is None
 
 
 def test_a_failure_partway_keeps_the_review_so_far(tmp_path, monkeypatch):
@@ -463,7 +428,7 @@ def test_the_review_screen_shows_only_the_agents_messages(monkeypatch, capsys):
         ui.messages.put(record(text, thread))
     monkeypatch.setattr(ui, "clear_screen", lambda: None)
 
-    review._draw(_transaction("Mop"), 1, 1, {}, {})
+    review._draw(_transaction("Mop"), 1, 1, {})
 
     assert capsys.readouterr().out.startswith("Progress on AI\n")
     assert [ui.messages.get().msg for _ in range(2)] == ["Matched", "Split"]  # left for the next menu, in order
@@ -532,3 +497,173 @@ def test_editing_one_half_leaves_the_other_halfs_category(tmp_path, monkeypatch)
     [t] = _review(tmp_path, monkeypatch, [t], keys=["d", "e", "1", "q"], typed=["groc"])
 
     assert [line["category_id"] for line in t["split_lines"]] == ["groceries", "supplies"]
+
+
+def _categorized(*lines: tuple[str, str | None]) -> dict:
+    """A transaction with one -1.00 line per (memo, category_id) in `lines`."""
+    t = _transaction(*(memo for memo, _ in lines))
+    for line, (_, category_id) in zip(t["split_lines"], lines):
+        line["category_id"] = category_id
+    return t
+
+
+@pytest.mark.parametrize("keys, category_id", [
+    (["m", "a"], "groceries"),
+    (["m", "e", "a"], "supplies"),  # the merged line given another category before approving
+])
+def test_merge_puts_one_category_into_one_line_that_is_approved_and_queued(tmp_path, monkeypatch, keys,
+                                                                            category_id):
+    t = _categorized(("Milk", "groceries"), ("Eggs", "groceries"), ("Milk", "groceries"))
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=keys, typed=["supp"])
+
+    assert t["split_lines"] == [
+        {"amount": t["amount"], "memo": "Milk, Eggs", "category_id": category_id, "items": ["Milk", "Eggs"]}
+    ]
+    assert t["review_status"] == "approved"
+    [entry] = json.loads((tmp_path / "amazon.com_ynab_approved.json").read_text())
+    assert entry["split_lines"] == t["split_lines"]
+    assert json.loads((tmp_path / "amazon.com_categories.json").read_text()) == {
+        "Milk": {"category": category_id, "by": "user"}, "Eggs": {"category": category_id, "by": "user"}
+    }  # the items with the line's final category, not the merged memo
+
+
+def test_merge_again_combines_the_merged_lines_items(tmp_path, monkeypatch):
+    t = _categorized(("Milk", "groceries"), ("Eggs", "groceries"), ("Tea", "supplies"))
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=["m", "e", "1", "m", "a"], typed=["supp"])
+
+    assert t["split_lines"] == [
+        {"amount": -3000, "memo": "Milk, Eggs, Tea", "category_id": "supplies", "items": ["Milk", "Eggs", "Tea"]}
+    ]
+    assert set(json.loads((tmp_path / "amazon.com_categories.json").read_text())) == {"Milk", "Eggs", "Tea"}
+
+
+def test_merge_goes_per_category_in_order_and_leaves_uncategorized_lines(tmp_path, monkeypatch):
+    t = _categorized(("Milk", "groceries"), ("Mop", "supplies"), ("Tea", None), ("Eggs", "groceries"),
+                     ("Old", "deleted"), ("Sponge", "supplies"), ("Older", "deleted"))
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=["m", "q"])
+
+    assert [(line["memo"], line["amount"], line["category_id"]) for line in t["split_lines"]] == [
+        ("Milk, Eggs", -2000, "groceries"), ("Mop, Sponge", -2000, "supplies"), ("Tea", -1000, None),
+        ("Old", -1000, "deleted"), ("Older", -1000, "deleted"),
+    ]
+
+
+def test_merge_with_no_shared_category_changes_nothing_and_says_so(tmp_path, monkeypatch, capsys):
+    t = _categorized(("Milk", "groceries"), ("Tea", None), ("Mop", "supplies"), ("Coffee", None))
+    before = [dict(line) for line in t["split_lines"]]
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=["m", "q"])
+
+    assert t["split_lines"] == before
+    assert "Nothing to merge: no two lines share a category." in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("keys", [["d", "2", "u", "q"], ["m", "u", "q"]])
+def test_undo_gives_back_the_lines_before_divide_or_merge(tmp_path, monkeypatch, keys):
+    t = _categorized(("Milk", "groceries"), ("Tea", "groceries"))
+    t["split_lines"][0].update(memo="Milk, Eggs", items=["Milk", "Eggs"])  # merged before
+    before = copy.deepcopy(t["split_lines"])
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=keys)
+
+    assert t["split_lines"] == before
+
+
+@pytest.mark.parametrize("undos, memos", [(1, ["Milk", "Milk", "Tea"]), (2, ["Milk", "Tea"])])
+def test_undo_goes_back_one_step_at_a_time_last_first(tmp_path, monkeypatch, undos, memos):
+    t = _categorized(("Milk", "groceries"), ("Tea", "supplies"))
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=["d", "1", "m", *["u"] * undos, "q"])
+
+    assert [line["memo"] for line in t["split_lines"]] == memos
+    assert "items" not in t["split_lines"][0]
+
+
+def test_undo_with_nothing_to_undo_says_so_and_forgets_the_last_transaction(tmp_path, monkeypatch, capsys):
+    first, second = _categorized(("Milk", "groceries")), _categorized(("Tea", None), ("Mop", None))
+
+    first, second = _review(tmp_path, monkeypatch, [first, second], keys=["d", "s", "u", "q"])
+
+    assert len(first["split_lines"]) == 2
+    assert [line["memo"] for line in second["split_lines"]] == ["Tea", "Mop"]
+    assert "Nothing to undo." in capsys.readouterr().out
+
+
+def test_undo_of_dividing_a_whole_transaction_gives_back_no_lines(tmp_path, monkeypatch):
+    t = _transaction()
+    t["review_category_id"] = "groceries"
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=["d", "u", "a"])
+
+    [entry] = json.loads((tmp_path / "amazon.com_ynab_approved.json").read_text())
+    assert entry["split_lines"] == []
+    assert entry["category_id"] == "groceries"
+
+
+def test_undo_takes_back_a_category_set_after_the_divide_then_the_divide_stays(tmp_path, monkeypatch):
+    t = _categorized(("Milk", "groceries"), ("Tea", "groceries"))
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=["d", "1", "e", "3", "u", "a"], typed=["supp"])
+
+    [entry] = json.loads((tmp_path / "amazon.com_ynab_approved.json").read_text())
+    assert [line["category_id"] for line in entry["split_lines"]] == ["groceries", "groceries", "groceries"]
+    assert json.loads((tmp_path / "amazon.com_categories.json").read_text())["Tea"] == {
+        "category": "groceries", "by": "user"
+    }
+
+
+def test_undo_of_an_edit_also_takes_the_category_out_of_the_table(tmp_path, monkeypatch):
+    [t] = _review(tmp_path, monkeypatch, [_transaction("Tea")], keys=["e", "u", "q"], typed=["groc"])
+
+    assert t["split_lines"][0]["category_id"] is None  # not filled back in from the table
+    assert json.loads((tmp_path / "amazon.com_categories.json").read_text()) == {}
+
+
+def test_undo_of_an_edit_gives_back_the_tables_category_and_who_set_it(tmp_path, monkeypatch):
+    table_path = tmp_path / "amazon.com_categories.json"
+    table_path.write_text(json.dumps({"Tea": {"category": "supplies", "by": "agent"}}))
+
+    [t] = _review(tmp_path, monkeypatch, [_transaction("Tea")], keys=["e", "u", "q"], typed=["groc"])
+
+    assert t["split_lines"][0]["category_id"] == "supplies"
+    assert json.loads(table_path.read_text()) == {"Tea": {"category": "supplies", "by": "agent"}}
+
+
+def test_undo_of_an_edit_of_a_whole_transaction_leaves_it_uncategorized(tmp_path, monkeypatch):
+    [t] = _review(tmp_path, monkeypatch, [_transaction()], keys=["e", "u", "q"], typed=["groc"])
+
+    assert "review_category_id" not in t
+
+
+@pytest.mark.parametrize("undos, lines", [
+    (1, [("Milk", "groceries"), ("Milk", "groceries"), ("Tea", "groceries")]),
+    (2, [("Milk", "groceries"), ("Milk", "groceries"), ("Tea", "supplies")]),
+    (3, [("Milk", "groceries"), ("Tea", "supplies")]),
+])
+def test_undo_takes_back_divide_edit_and_merge_last_first(tmp_path, monkeypatch, undos, lines):
+    t = _categorized(("Milk", "groceries"), ("Tea", "supplies"))
+
+    [t] = _review(tmp_path, monkeypatch, [t], keys=["d", "1", "e", "3", "m", *["u"] * undos, "q"], typed=["groc"])
+
+    assert [(line["memo"], line["category_id"]) for line in t["split_lines"]] == lines
+    assert all("items" not in line for line in t["split_lines"])
+
+
+def test_the_agent_is_asked_about_a_saved_merged_lines_items_not_its_memo(tmp_path, monkeypatch):
+    t = _transaction()
+    t["amount"] = -2000
+    t["split_lines"] = [{"amount": -2000, "memo": "Milk, Eggs", "category_id": None, "items": ["Milk", "Eggs"]}]
+    asked = []
+
+    def ask(system, user, schema):
+        asked.append(user)
+        return {"results": [{"item": 1, "category": 1, "confidence": "high"},
+                            {"item": 2, "category": 1, "confidence": "high"}]}  # 1: "Food: Groceries"
+
+    _review(tmp_path, monkeypatch, [t], keys=["q"], ask=ask)
+
+    assert asked == ["Items:\n1. Milk\n2. Eggs"]
+    assert set(json.loads((tmp_path / "amazon.com_categories.json").read_text())) == {"Milk", "Eggs"}

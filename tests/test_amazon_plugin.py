@@ -540,6 +540,25 @@ def test_whole_foods_charges_link_to_their_orders_and_match_once(amazon_module, 
     assert [(i.description, i.amount) for i in unlinked.line_items] == [("Whole Foods Market", 30000)]
 
 
+def test_whole_foods_receipt_paid_in_two_charges_links_both(amazon_module, monkeypatch):
+    # Store card points paid part on the day, the card the rest a day later.
+    order = _FakeOrder("113-0000010", datetime.date(2026, 4, 15), 35.00, whole_foods=True)
+    charges = [
+        _whole_foods_charge(RECEIPTS[0], datetime.date(2026, 4, 15), -10.00),
+        _whole_foods_charge(RECEIPTS[0], datetime.date(2026, 4, 16), -25.00),
+    ]
+    orders = {"year-2026": [order], "last30": [order]}
+    plugin = amazon_module.AmazonPlugin()
+    _stub_scrape(amazon_module, monkeypatch, _FakeAmazonSession(True), orders, charges, today=datetime.date(2026, 4, 16))
+    plugin.get_data_from_vendor(datetime.date(2026, 4, 1))
+    # The next day's scrape re-reads charges from 04-16 on: only the card charge, unlinked again.
+    _stub_scrape(amazon_module, monkeypatch, _FakeAmazonSession(True), orders, charges[1:], today=datetime.date(2026, 4, 17))
+    plugin.get_data_from_vendor()
+
+    assert [c["order_number"] for c in _saved(amazon_module)["charges"]] == ["113-0000010"] * 2
+    assert plugin.get_vendor_transaction(datetime.date(2026, 4, 16), -25000).source_id == "113-0000010"
+
+
 @pytest.mark.parametrize("charge, link", [
     (_FakeCharge("112-0000000-0000001", TODAY, -10.00),
      "https://www.amazon.com/gp/your-account/order-details?orderID=112-0000000-0000001"),

@@ -133,6 +133,28 @@ def _colours_menu() -> None:
     log.info(f"{_colours_label()}.")
 
 
+MEMO_CHOICES = [
+    ("None", "none"),
+    ("Order number, on the transaction", "order"),
+    ("Item names", "items"),
+]
+
+
+def _memos_label() -> str:
+    choice = user_prefs.load_user_prefs()["memos"]
+    return "Memos: " + next(label for label, value in MEMO_CHOICES if value == choice)
+
+
+def _memos_menu() -> None:
+    choice = ui.choose("Memos written to YNAB:", MEMO_CHOICES, back_label="Back")
+    if choice is None:
+        return
+    prefs = user_prefs.load_user_prefs()
+    prefs["memos"] = choice
+    user_prefs.save_user_prefs(prefs)
+    log.info(f"{_memos_label()}.")
+
+
 def _agent_label() -> str:
     agent = user_prefs.load_user_prefs()["agent"]
     if not agent["enabled"]:
@@ -198,6 +220,7 @@ def settings_menu() -> None:
             (_with_details("Plugins", plugin_lines or ["(none installed)"]), _plugins_menu),
             (_with_details("Display", [_colours_label()]), _colours_menu),
             (_with_details("AI agent", [_agent_label()]), _ai_agent_menu),
+            (_with_details("Memos", [_memos_label()]), _memos_menu),
         ])
         if action is None:
             return
@@ -213,10 +236,13 @@ def _match_and_split_menu() -> None:
         ])
         if plugin is None:
             return
-        actions = [("Match and Split", match.run_cycle_for_plugin)]
-        if match.has_last_results(plugin):
-            actions.append(("Review last results", match.review_last_results))
-        action = ui.menu(f"=== {plugin.name} ===", actions)
+        if not match.has_last_results(plugin):
+            match.run_cycle_for_plugin(plugin)
+            continue
+        action = ui.menu(f"=== {plugin.name} ===", [
+            ("Match and Split", match.run_cycle_for_plugin),
+            ("Review last results", match.review_last_results),
+        ])
         if action is not None:
             action(plugin)
 

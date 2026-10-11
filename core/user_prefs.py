@@ -27,6 +27,10 @@ DEFAULT_PREFS: dict[str, Any] = {
     # Screen colours: "auto" (Gruvbox or Gruvbox light, to match the
     # terminal's background), "dark" or "light". Settings > Display.
     "colours": "auto",
+    # What push writes to YNAB memos: "none", "order" (the order number on
+    # the transaction) or "items" (each split line's item name). A memo
+    # already in YNAB is never overwritten. Settings > Memos.
+    "memos": "order",
     # AI categorization: on/off, the provider (a key of
     # core/agents.PROVIDERS) and, once picked, the model: the keys of an
     # agents.list_<provider>_models() entry ("model" id, "model_name",

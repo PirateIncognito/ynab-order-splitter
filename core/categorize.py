@@ -71,6 +71,12 @@ def chosen_ask() -> Callable[[str, str, dict], dict] | None:
     return functools.partial(ask, **{k: v for k, v in agent.items() if k in ("model", "effort")})
 
 
+def item_names(line: dict) -> list[str]:
+    """The item names split line `line` stands for: a merged line's "items"
+    (core/review.py [m]erge), else its memo; not NOT_ITEMS."""
+    return [memo for memo in line.get("items", [line["memo"]]) if memo not in NOT_ITEMS]
+
+
 def plan_calls(transactions: list[dict], table: dict[str, dict]) -> list[list[str]]:
     """The items to ask about, one list per call, in the order of
     `transactions`: each item name once, if `table` has no entry for it
@@ -80,8 +86,7 @@ def plan_calls(transactions: list[dict], table: dict[str, dict]) -> list[list[st
     per_transaction, sent = [], set()
     for t in transactions:
         items = list(dict.fromkeys(
-            line["memo"] for line in t["split_lines"]
-            if line["memo"] not in NOT_ITEMS and line["memo"] not in table and line["memo"] not in sent
+            item for line in t["split_lines"] for item in item_names(line) if item not in table and item not in sent
         ))
         if items:
             sent.update(items)

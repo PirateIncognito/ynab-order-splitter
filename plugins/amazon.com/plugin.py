@@ -182,17 +182,29 @@ def _charge_to_dict(transaction) -> dict:
 
 
 def _link_whole_foods(charges: list[dict], orders: list[dict]) -> None:
-    """Give each Whole Foods charge still carrying only its receipt UUID the
-    number of its order: a Whole Foods order for the same amount, placed 0-3
-    days before the charge, that no other charge has. So the order and its
-    charge are one purchase (an order with a charge is left out of matching).
-    Oldest charge first, each taking the oldest order that fits, so
-    same-amount orders a few days apart all get their charge."""
+    """Give the Whole Foods charges still carrying only their receipt UUID
+    the number of their order. All purchase charges with one receipt are one
+    payment, sometimes split (store card points, then the card): if one of
+    them is linked already (a re-scrape replaces only the charges it re-reads),
+    the rest get its order number. Otherwise their order is a Whole Foods
+    order for their total, placed 0-3 days before the receipt's first charge,
+    that no other charge has. So the order and its charges are one purchase
+    (an order with a charge is left out of matching). Oldest receipt first,
+    each taking the oldest order that fits, so same-amount orders a few days
+    apart all get their charges."""
     used = {c["order_number"] for c in charges}
+    receipts = {}  # oldest first charge first
     for charge in sorted(charges, key=lambda c: c["completed_date"]):
-        if not charge.get("receipt") or charge["order_number"] != charge["receipt"]:
+        if charge.get("receipt") and charge["grand_total"] < 0:
+            receipts.setdefault(charge["receipt"], []).append(charge)
+    for receipt_charges in receipts.values():
+        linked = next((c["order_number"] for c in receipt_charges if c["order_number"] != c["receipt"]), None)
+        if linked:
+            for charge in receipt_charges:
+                charge["order_number"] = linked
             continue
-        paid = datetime.date.fromisoformat(charge["completed_date"])
+        paid = datetime.date.fromisoformat(receipt_charges[0]["completed_date"])
+        total = -sum(dollars_to_milliunits(c["grand_total"]) for c in receipt_charges)
         order = min(
             (
                 o
@@ -200,14 +212,15 @@ def _link_whole_foods(charges: list[dict], orders: list[dict]) -> None:
                 if o.get("is_whole_foods")
                 and o["order_number"] not in used
                 and o["grand_total"] is not None
-                and dollars_to_milliunits(o["grand_total"]) == -dollars_to_milliunits(charge["grand_total"])
+                and dollars_to_milliunits(o["grand_total"]) == total
                 and 0 <= (paid - datetime.date.fromisoformat(o["order_placed_date"])).days <= 3
             ),
             key=lambda o: o["order_placed_date"],
             default=None,
         )
         if order:
-            charge["order_number"] = order["order_number"]
+            for charge in receipt_charges:
+                charge["order_number"] = order["order_number"]
             used.add(order["order_number"])
 
 

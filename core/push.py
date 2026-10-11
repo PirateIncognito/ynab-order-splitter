@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ynab.exceptions import ApiException
 
-from core import ui, ynab_client
+from core import ui, user_prefs, ynab_client
 from core.milliunits import milliunits_to_dollars
 
 # Half the ~1.1 MB a split PATCH was measured to take before YNAB times out (~30 s).
@@ -39,7 +39,7 @@ def queue(path: Path, budget_id: str, transaction: dict) -> None:
         "amount": transaction["amount"],
         "split_lines": transaction["split_lines"],
         "category_id": transaction.get("review_category_id"),  # with no split lines, the whole transaction's
-        "payee_id": transaction.get("review_payee_id"),  # None: the payee is left as it is in YNAB
+        "order_number": transaction["vendor_match"]["source_id"],
     })
     path.write_text(json.dumps(entries, indent=2))
 
@@ -49,24 +49,33 @@ def for_budget(queued: list[dict], budget_id: str) -> list[dict]:
     return [e for e in queued if e["budget_id"] == budget_id]
 
 
-def _payload(entry: dict, current) -> dict:
+def _payload(entry: dict, current, memos: str) -> dict:
     """What to PATCH for queued `entry` (`current`: its transaction as just
-    re-read from YNAB): approved, and split by its lines, each with the
-    picked payee, else the current one in YNAB; one line is no split: that line's
-    category and memo; no lines: its one category. The transaction's own
-    payee only if the user picked one."""
+    re-read from YNAB): approved, and split by its lines; one line is no
+    split: that line's category; no lines: its one category. No payee
+    (YNAB shows split lines under the transaction's payee); a payee_id on
+    an entry queued by an older version is ignored. Memos by `memos`
+    (Settings > Memos): "order" puts the order number on the transaction,
+    "items" each line's item name on that line (on the transaction for one
+    line), but none on a merged line; a memo already on the transaction in
+    YNAB is kept."""
     payload = {"id": entry["id"], "approved": True}
-    if entry.get("payee_id"):  # entries queued before [p] existed have no payee_id
-        payload["payee_id"] = entry["payee_id"]
     # Item names stay whole in the queue (the category table's key); YNAB gets the first 50 characters.
-    lines = [{**line, "memo": line["memo"][:MEMO_LENGTH]} for line in entry["split_lines"]]
-    payee_id = entry.get("payee_id") or (str(current.payee_id) if current.payee_id else None)
+    lines = [
+        {"amount": line["amount"], "category_id": line["category_id"]}
+        | ({"memo": line["memo"][:MEMO_LENGTH]} if memos == "items" and "items" not in line else {})
+        for line in entry["split_lines"]
+    ]
+    memo = entry.get("order_number") if memos == "order" else None  # entries queued before memos have none
     if len(lines) > 1:
-        payload["subtransactions"] = [{**line, "payee_id": payee_id} if payee_id else line for line in lines]
+        payload["subtransactions"] = lines
     elif lines:
-        payload.update(category_id=lines[0]["category_id"], memo=lines[0]["memo"])
+        payload["category_id"] = lines[0]["category_id"]
+        memo = memo or lines[0].get("memo")
     else:
         payload["category_id"] = entry["category_id"]
+    if memo and not current.memo:
+        payload["memo"] = memo
     return payload
 
 
@@ -147,7 +156,8 @@ def push_approved(path: Path, access_token: str, budget_id: str) -> None:
         done.add(e["id"])
 
     error = None
-    todo = batches([_payload(e, current[e["id"]]) for e in to_write])
+    memos = user_prefs.load_user_prefs()["memos"]
+    todo = batches([_payload(e, current[e["id"]], memos) for e in to_write])
     for n, batch in enumerate(todo, 1):
         try:
             done.update(ynab_client.update_transactions(access_token, budget_id, batch))

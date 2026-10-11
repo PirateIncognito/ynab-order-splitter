@@ -7,10 +7,11 @@ from types import SimpleNamespace
 import pytest
 from ynab.exceptions import ApiException
 
-from core import push, ui
+from core import push, ui, user_prefs
 from core.ynab_client import Category
 
 BUDGET = "budget-1"
+ORDER = "111-1111111-1111111"
 
 
 def _matched(id, amount=-3000, lines=((-2000, "Mop", "home"), (-1000, "Tea", "food"))) -> dict:
@@ -20,6 +21,7 @@ def _matched(id, amount=-3000, lines=((-2000, "Mop", "home"), (-1000, "Tea", "fo
         "date": "2025-01-02",
         "amount": amount,
         "split_lines": [{"amount": a, "memo": m, "category_id": c} for a, m, c in lines],
+        "vendor_match": {"source_id": ORDER},
     }
 
 
@@ -54,10 +56,10 @@ class FakeYnab:
 AMAZON = uuid.UUID("00000000-0000-0000-0000-00000000a001")  # YNAB's TransactionDetail.payee_id is a UUID
 
 
-def _in_ynab(id, date="2025-01-02", amount=-3000, subtransactions=(), payee_id=AMAZON):
+def _in_ynab(id, date="2025-01-02", amount=-3000, subtransactions=(), memo=None):
     return SimpleNamespace(
         id=id, var_date=datetime.date.fromisoformat(date), amount=amount, subtransactions=list(subtransactions),
-        payee_id=payee_id,
+        payee_id=AMAZON, memo=memo,
     )
 
 
@@ -65,6 +67,7 @@ def _in_ynab(id, date="2025-01-02", amount=-3000, subtransactions=(), payee_id=A
 def queue_path(tmp_path, monkeypatch, caplog):
     caplog.set_level(logging.INFO)
     monkeypatch.setattr(ui, "key", lambda message, keys: "y")
+    monkeypatch.setattr(user_prefs, "USER_PREFS_PATH", tmp_path / "user_prefs.json")
     return tmp_path / "amazon.com_ynab_approved.json"
 
 
@@ -139,11 +142,75 @@ def test_payload_approves_and_splits_by_the_reviewed_lines(queue_path, monkeypat
     assert split["approved"] is True
     assert sum(s["amount"] for s in split["subtransactions"]) == -3000
     assert [s["category_id"] for s in split["subtransactions"]] == ["home", "food"]
-    assert whole == {"id": "whole", "approved": True, "category_id": "food"}
+    assert whole == {"id": "whole", "approved": True, "category_id": "food", "memo": ORDER}
+    assert _queued(queue_path) == []
+
+
+@pytest.mark.parametrize("memos, parent, line_memos, one_line", [
+    ("none", None, [None, None], None),
+    ("order", ORDER, [None, None], ORDER),
+    ("items", None, ["Mop", "Tea"], "Mop"),
+])
+def test_memos_follow_the_setting(queue_path, monkeypatch, memos, parent, line_memos, one_line):
+    user_prefs.save_user_prefs({"memos": memos})
+    ynab = FakeYnab(monkeypatch, [_in_ynab("split"), _in_ynab("one")])
+    push.queue(queue_path, BUDGET, _matched("split"))
+    push.queue(queue_path, BUDGET, _matched("one", lines=((-3000, "Mop", "home"),)))
+
+    push.push_approved(queue_path, "token", BUDGET)
+
+    [[split, one]] = ynab.patches
+    assert split.get("memo") == parent
+    assert [s.get("memo") for s in split["subtransactions"]] == line_memos
+    assert one.get("memo") == one_line
+
+
+@pytest.mark.parametrize("memos", ["order", "items"])
+def test_a_memo_already_in_ynab_is_never_overwritten(queue_path, monkeypatch, memos):
+    user_prefs.save_user_prefs({"memos": memos})
+    ynab = FakeYnab(monkeypatch, [_in_ynab("split", memo="Gift for Sam"), _in_ynab("one", memo="Gift for Sam")])
+    push.queue(queue_path, BUDGET, _matched("split"))
+    push.queue(queue_path, BUDGET, _matched("one", lines=((-3000, "Mop", "home"),)))
+
+    push.push_approved(queue_path, "token", BUDGET)
+
+    [[split, one]] = ynab.patches
+    assert "memo" not in split and "memo" not in one
+
+
+def test_a_merged_line_gets_no_item_memo(queue_path, monkeypatch):
+    user_prefs.save_user_prefs({"memos": "items"})
+    merged = {"amount": -2000, "memo": "Mop, Soap", "category_id": "home", "items": ["Mop", "Soap"]}
+    ynab = FakeYnab(monkeypatch, [_in_ynab("split"), _in_ynab("one", amount=-2000)])
+    push.queue(queue_path, BUDGET, {**_matched("split"), "split_lines": [
+        merged, {"amount": -1000, "memo": "Tea", "category_id": "food"},
+    ]})
+    push.queue(queue_path, BUDGET, {**_matched("one", amount=-2000), "split_lines": [merged]})
+
+    push.push_approved(queue_path, "token", BUDGET)
+
+    [[split, one]] = ynab.patches
+    assert [s.get("memo") for s in split["subtransactions"]] == [None, "Tea"]
+    assert "items" not in split["subtransactions"][0]
+    assert one == {"id": "one", "approved": True, "category_id": "home"}
+
+
+def test_an_entry_queued_before_memos_pushes_without_one(queue_path, monkeypatch):
+    ynab = FakeYnab(monkeypatch, [_in_ynab("t1")])
+    push.queue(queue_path, BUDGET, _matched("t1"))
+    entries = json.loads(queue_path.read_text())
+    del entries[0]["order_number"]
+    queue_path.write_text(json.dumps(entries))
+
+    push.push_approved(queue_path, "token", BUDGET)
+
+    [[t1]] = ynab.patches
+    assert "memo" not in t1
     assert _queued(queue_path) == []
 
 
 def test_split_memos_are_cut_to_50_characters_but_kept_whole_in_the_queue(queue_path, monkeypatch):
+    user_prefs.save_user_prefs({"memos": "items"})
     long = "Organic Fair Trade Whole Bean Coffee, Medium Roast, 2 lb Bag, Pack of 3"
     ynab = FakeYnab(monkeypatch, [_in_ynab("split")], fail=ApiException(status=500))  # failed: stays queued
     push.queue(queue_path, BUDGET, _matched("split", lines=((-2000, long, "food"), (-1000, "Tea", "food"))))
@@ -155,43 +222,24 @@ def test_split_memos_are_cut_to_50_characters_but_kept_whole_in_the_queue(queue_
     assert json.loads(queue_path.read_text())[0]["split_lines"][0]["memo"] == long
 
 
-def test_payload_sets_the_payee_only_when_the_user_picked_one(queue_path, monkeypatch):
-    ynab = FakeYnab(monkeypatch, [_in_ynab("picked"), _in_ynab("unchanged")])
-    push.queue(queue_path, BUDGET, {**_matched("picked"), "review_payee_id": "p-whole-foods"})
-    push.queue(queue_path, BUDGET, _matched("unchanged"))
+def test_push_sends_no_payee(queue_path, monkeypatch):
+    ynab = FakeYnab(monkeypatch, [_in_ynab("old"), _in_ynab("new")])  # both have a payee in YNAB
+    push.queue(queue_path, BUDGET, _matched("old"))
+    push.queue(queue_path, BUDGET, _matched("new"))
+    entries = json.loads(queue_path.read_text())
+    entries[0]["payee_id"] = "p-whole-foods"  # queued while the review still had [p]ayee
+    queue_path.write_text(json.dumps(entries))
 
     push.push_approved(queue_path, "token", BUDGET)
 
-    [[picked, unchanged]] = ynab.patches
-    assert picked["payee_id"] == "p-whole-foods"
-    assert "payee_id" not in unchanged  # an unchanged payee must not be overwritten
-    # split lines inherit the parent's payee: the picked one, else YNAB's own
-    assert [s["payee_id"] for s in picked["subtransactions"]] == ["p-whole-foods"] * 2
-    assert [s["payee_id"] for s in unchanged["subtransactions"]] == [str(AMAZON)] * 2
-
-
-def test_split_lines_get_the_payee_in_ynab_at_push_time(queue_path, monkeypatch):
-    renamed = uuid.UUID("00000000-0000-0000-0000-00000000b002")
-    ynab = FakeYnab(monkeypatch, [_in_ynab("t1", payee_id=renamed)])  # changed in YNAB after approval
-    push.queue(queue_path, BUDGET, {**_matched("t1"), "payee_id": str(AMAZON)})
-
-    push.push_approved(queue_path, "token", BUDGET)
-
-    [[t1]] = ynab.patches
-    assert [s["payee_id"] for s in t1["subtransactions"]] == [str(renamed)] * 2
-
-
-def test_split_lines_get_no_payee_when_ynab_has_none(queue_path, monkeypatch):
-    ynab = FakeYnab(monkeypatch, [_in_ynab("t1", payee_id=None)])
-    push.queue(queue_path, BUDGET, _matched("t1"))
-
-    push.push_approved(queue_path, "token", BUDGET)
-
-    [[t1]] = ynab.patches
-    assert all("payee_id" not in s for s in t1["subtransactions"])  # not "None", which YNAB would reject
+    [[old, new]] = ynab.patches
+    assert "subtransactions" in old and "subtransactions" in new
+    assert "payee_id" not in json.dumps(ynab.patches)  # split lines show under the transaction's payee
+    assert _queued(queue_path) == []
 
 
 def test_one_line_is_pushed_unsplit_with_its_category_and_memo(queue_path, monkeypatch):
+    user_prefs.save_user_prefs({"memos": "items"})
     long = "Organic Fair Trade Whole Bean Coffee, Medium Roast, 2 lb Bag, Pack of 3"
     ynab = FakeYnab(monkeypatch, [_in_ynab("one")])
     push.queue(queue_path, BUDGET, _matched("one", lines=((-3000, long, "food"),)))

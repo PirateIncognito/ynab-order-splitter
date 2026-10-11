@@ -35,6 +35,7 @@ flowchart TD
         orch["orchestrator.py<br/>finds plugins once"]
         sdk["plugin.py<br/>VendorPlugin SDK"]
         amz["amazon.com/plugin.py"]
+        cos["costco.com/plugin.py"]
     end
 
     main --> agents & config & match & ps & push & wizard & ui & prefs & yc & orch
@@ -43,11 +44,12 @@ flowchart TD
     wizard --> config & ui & prefs & yc
     match --> cat & config & ps & prefs & push & split & review & yc & orch & sdk
     review --> cat & push & ui & mu & yc
-    push --> ui & mu & yc
+    push --> ui & prefs & mu & yc
     ps --> config & ui & prefs & yc & mu & orch & sdk
     orch --> sdk
-    orch -. "loads by file path" .-> amz
+    orch -. "loads by file path" .-> amz & cos
     amz --> sdk & config & ui & mu
+    cos --> sdk & mu
 
     yc --> ynabsdk[["ynab SDK"]]
     amz --> amzlib[["amazon-orders"]]
@@ -70,9 +72,10 @@ flowchart TD
 
     mm{"Main menu"}
     mm -- "1 Match and Split" --> pickplug{"Pick plugin"}
-    pickplug -- "plugin" --> plugact{"Match and Split /<br/>Review last results"}
+    pickplug -- "plugin, nothing to review" --> cycle
+    pickplug -- "plugin, match.has_last_results" --> plugact{"Match and Split /<br/>Review last results"}
     plugact -- "Match and Split" --> cycle["match.run_cycle_for_plugin(plugin)<br/>see diagram 3"]
-    plugact -- "Review last results<br/>(listed if match.has_last_results:<br/>a split left to approve or<br/>one queued, this budget)" --> last["match.review_last_results(plugin)<br/>only if a split is left to approve:<br/>saved &lt;plugin&gt;_ynab_matched.json + ynab_categories.json<br/>(this budget's) + payees fetched now → review_transactions;<br/>no vendor calls, no re-matching; then the push offer"]
+    plugact -- "Review last results<br/>(a split left to approve or<br/>one queued, this budget)" --> last["match.review_last_results(plugin)<br/>only if a split is left to approve:<br/>saved &lt;plugin&gt;_ynab_matched.json + ynab_categories.json<br/>(this budget's) → review_transactions;<br/>no vendor calls, no re-matching; then the push offer"]
     cycle & last --> pickplug
     last -. "then" .-> pushlast["push.push_approved()"]
     pickplug -- "0" --> mm
@@ -82,8 +85,12 @@ flowchart TD
     settings -- "1 YNAB" --> ynabmenu["Change token /<br/>change budget (a new one clears account-mode<br/>plugins' accounts and the tax category,<br/>refetches categories, then asks the missing settings)"]
     settings -- "2 Plugins" --> pluglist["Pick plugin"]
     pluglist --> plugmenu["Mapping · Match window · Run mode<br/>then the plugin's own settings<br/>(Amazon: Credentials · Debug snapshots)"]
-    settings -- "3 AI agent" --> ai["Off / Claude / OpenAI / Gemini<br/>asks for a missing key; cancel leaves AI off;<br/>then pick a model from the provider's list<br/>(Back keeps it; a new provider starts on its default)"]
+    settings -- "3 Display" --> display["Colours: Auto (match the terminal) / Dark / Light"]
+    display --> settings
+    settings -- "4 AI agent" --> ai["Off / Claude / OpenAI / Gemini<br/>asks for a missing key; cancel leaves AI off;<br/>then pick a model from the provider's list<br/>(Back keeps it; a new provider starts on its default)"]
     ai --> settings
+    settings -- "5 Memos" --> memos["What push writes to YNAB memos:<br/>None / Order number (default) / Item names"]
+    memos --> settings
     settings -- "0" --> mm
     ynabmenu --> settings
     plugmenu --> pluglist
@@ -113,8 +120,6 @@ sequenceDiagram
     end
     M->>Y: list_categories()
     Y-->>M: categories → ynab_categories.json<br/>(saved ones another budget's: plugin category tables<br/>first move to the same-named categories, categorize.follow_budget)
-    M->>Y: list_payees()
-    Y-->>M: payees (in memory only; no deleted or transfer payees)
 
     M->>Y: list_transactions(unapproved_only = run_mode == "unapproved")
     Y-->>M: transactions
@@ -143,7 +148,7 @@ sequenceDiagram
     S->>S: each matched/ambiguous transaction: pick the charged items<br/>(all, or the shipments that add up to a part-charge),<br/>spread the amount over them (tax too, unless its own line)
     S->>S: add split_status (exact / approximate / nothing to split),<br/>split_reason, split_lines; save the file
 
-    M->>R: review_transactions(amazon.com_ynab_matched.json, categories, payees,<br/>ask = the chosen provider, None if AI is off or its key is missing)
+    M->>R: review_transactions(amazon.com_ynab_matched.json, categories,<br/>ask = the chosen provider, None if AI is off or its key is missing)
     opt ask and items with no table entry (not "Sales tax"; each name once)
         R-)C: start: first 10 transactions' items one call each,<br/>then 100 transactions' items per call
         C->>C: each call: agents.ask_*, write valid answers as "agent"<br/>(unless the item got an entry meanwhile), save the table;<br/>a failed call leaves its items "(none)"
@@ -152,17 +157,17 @@ sequenceDiagram
     loop each split transaction not yet approved, newest first, until [q]
         R->>R: if its items are pending: "Waiting for Agent suggestions..."<br/>until answered or failed
         R->>R: fill uncategorized lines from the plugin's category table
-        R->>R: one screen: [a]pprove (every line categorized),<br/>[e]dit (line, then category with autocomplete),<br/>[d]ivide (a line, or the whole amount, into two halves),<br/>[p]ayee (an existing payee, autocomplete; shown in the header),<br/>[o]pen order in browser (vendor_match.link),<br/>[s]kip, [q]uit
-        R->>Q: on [a]: queue(amazon.com_ynab_approved.json) -- id, budget,<br/>date, amount, split lines or whole category, picked payee; replaces an earlier entry
+        R->>R: one screen, one option per line: [a] approve (every line categorized),<br/>[e] edit category (line, then category with autocomplete), [s] skip,<br/>[m] merge (lines of one category into one, memos joined),<br/>[d] divide (a line, or the whole amount, into two halves),<br/>[u] undo (this screen's last [e], [d] or [m], in memory only),<br/>[o] open order in browser (vendor_match.link), [q] quit
+        R->>Q: on [a]: queue(amazon.com_ynab_approved.json) -- id, budget,<br/>date, amount, split lines or whole category,<br/>order number; replaces an earlier entry
     end
-    R->>R: save review_status (+ categories) into the file,<br/>and the category table ([e] and [a] set "user");<br/>the agent stops after its current call, writing nothing more
+    R->>R: save review_status (+ categories) into the file,<br/>and the category table ([e] and [a] set "user";<br/>a merged line's items, on [a] only);<br/>the agent stops after its current call, writing nothing more
 
     M->>Q: push_approved(amazon.com_ynab_approved.json, selected budget)
     Q->>Q: entries for another budget stay queued (one message);<br/>"Push N approved transaction(s) to YNAB? (y/n)" -- no: all stay queued
     Q->>Y: list_transactions(since earliest queued date), list_categories()
     Q->>Y: get_transaction(id) for each queued one not in that list
     Q->>Q: deleted / missing / already split: dropped from the queue;<br/>date or amount changed, or a category gone: flagged, leaves the queue
-    Q->>Y: update_transactions(batch) -- one PATCH per ≤ 500 KB of JSON:<br/>approved + subtransactions (each with the picked or current YNAB payee),<br/>or one line: approved + its category + memo, or approved + whole category;<br/>+ payee_id only if one was picked
+    Q->>Y: update_transactions(batch) -- one PATCH per ≤ 500 KB of JSON:<br/>approved + subtransactions (amount, category, memo; no payee),<br/>or one line: approved + its category, or approved + whole category;<br/>never a payee_id, even from an entry queued before [p] was removed; memos by Settings > Memos:<br/>order number on the transaction, or item names (not a merged line's),<br/>or none; a memo already in YNAB is never overwritten
     Y-->>Q: ids saved → removed from the queue; an error keeps the rest<br/>(one bad item fails its whole PATCH, nothing saved)
 ```
 
@@ -253,6 +258,8 @@ flowchart LR
         amzcats["plugins/amazon.com/<br/>amazon.com_categories.json<br/>item → category, by user / agent"]
         results["plugins/amazon.com/<br/>amazon.com_ynab_matched.json<br/>match results + proposed splits + review"]
         approved["plugins/amazon.com/<br/>amazon.com_ynab_approved.json<br/>approved, waiting to be pushed to YNAB"]
+        cosexports["plugins/costco.com/<br/>costco-receipts-*.json<br/>your Costco-Receipt-Downloader exports"]
+        cosorders["plugins/costco.com/<br/>costco.com_order_data.json<br/>merged receipts (mode 600)"]
     end
 
     subgraph other["Logs and debug output"]
@@ -275,6 +282,8 @@ flowchart LR
     amzlib[["amazon-orders"]] <--> cookies
     amzlib -->|"debug on"| snapshots
     amz --> amzlib
+    cos["costco.com/plugin.py"] <--> cosorders
+    cosexports --> cos
 ```
 
 Matching uses the Amazon charges first; an order's `grand_total` is only

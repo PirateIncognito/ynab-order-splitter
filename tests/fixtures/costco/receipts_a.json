@@ -1,0 +1,422 @@
+[
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000001",
+    "transactionDate": "2026-03-02",
+    "transactionDateTime": "2026-03-02T10:15:00",
+    "transactionType": "Sales",
+    "total": 11.32,
+    "subTotal": 10.48,
+    "taxes": 0.84,
+    "instantSavings": 3.0,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 101,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 3,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": 0.84,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [
+      {
+        "upcnumberCoupon": "0000000000",
+        "amountCoupon": null,
+        "voidflagCoupon": null
+      }
+    ],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": 11.32,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": [
+      {
+        "itemNumber": "111111",
+        "itemDescription01": "KS WATER 40PK ",
+        "itemDescription02": null,
+        "amount": 4.99,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "222222",
+        "itemDescription01": "/111111",
+        "itemDescription02": null,
+        "amount": -1.0,
+        "unit": -1,
+        "taxFlag": null,
+        "frenchItemDescription1": null,
+        "itemIdentifier": null,
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "333333",
+        "itemDescription01": "FREEBIE",
+        "itemDescription02": null,
+        "amount": 2.0,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "444444",
+        "itemDescription01": "/333333",
+        "itemDescription02": null,
+        "amount": -2.0,
+        "unit": -1,
+        "taxFlag": null,
+        "frenchItemDescription1": null,
+        "itemIdentifier": null,
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      },
+      {
+        "itemNumber": "555555",
+        "itemDescription01": "EGGS 24CT",
+        "itemDescription02": null,
+        "amount": 6.49,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      }
+    ]
+  },
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000002",
+    "transactionDate": "2026-03-02",
+    "transactionDateTime": "2026-03-02T16:40:00",
+    "transactionType": "Sales",
+    "total": -21.59,
+    "subTotal": -19.99,
+    "taxes": -1.6,
+    "instantSavings": 0,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 102,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 1,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": -1.6,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": -21.59,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": [
+      {
+        "itemNumber": "666666",
+        "itemDescription01": "BATH TOWELS",
+        "itemDescription02": null,
+        "amount": -19.99,
+        "unit": -1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      }
+    ]
+  },
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000003",
+    "transactionDate": "2026-03-10",
+    "transactionDateTime": "2026-03-10T09:00:00",
+    "transactionType": "Sales",
+    "total": 1.99,
+    "subTotal": 1.99,
+    "taxes": 0.0,
+    "instantSavings": 0,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 103,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 1,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": 0.0,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": 1.99,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": [
+      {
+        "itemNumber": "777777",
+        "itemDescription01": "BANANAS",
+        "itemDescription02": null,
+        "amount": 1.99,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      }
+    ]
+  },
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000004",
+    "transactionDate": "2026-03-10",
+    "transactionDateTime": "2026-03-10T18:30:00",
+    "transactionType": "Sales",
+    "total": 1.99,
+    "subTotal": 1.99,
+    "taxes": 0.0,
+    "instantSavings": 0,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 104,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 1,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": 0.0,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": 1.99,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": [
+      {
+        "itemNumber": "888888",
+        "itemDescription01": "BANANAS",
+        "itemDescription02": null,
+        "amount": 1.99,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      }
+    ]
+  },
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000005",
+    "transactionDate": "2026-03-15",
+    "transactionDateTime": "2026-03-15T12:00:00",
+    "transactionType": "Sales",
+    "total": 25.91,
+    "subTotal": 23.99,
+    "taxes": 1.92,
+    "instantSavings": 0,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 105,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 1,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": 1.92,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": 15.0,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      },
+      {
+        "tenderDescription": "Cash",
+        "tenderTypeCode": "061",
+        "amountTender": 10.91,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": [
+      {
+        "itemNumber": "999999",
+        "itemDescription01": "PAPER TOWELS",
+        "itemDescription02": null,
+        "amount": 23.99,
+        "unit": 1,
+        "taxFlag": "Y",
+        "frenchItemDescription1": null,
+        "itemIdentifier": "E",
+        "itemDepartmentNumber": null,
+        "itemUnitPriceAmount": null,
+        "fuelUnitQuantity": null
+      }
+    ]
+  },
+  {
+    "documentType": "WarehouseReceiptDetail",
+    "transactionBarcode": "00000000000000000000006",
+    "transactionDate": "2026-03-20",
+    "transactionDateTime": "2026-03-20T12:00:00",
+    "transactionType": "Refund",
+    "total": 0.0,
+    "subTotal": 0,
+    "taxes": 0.0,
+    "instantSavings": 0,
+    "warehouseName": "TESTVILLE",
+    "warehouseShortName": "TESTVILLE",
+    "warehouseNumber": 999,
+    "warehouseAddress1": "1 EXAMPLE WAY",
+    "warehouseAddress2": null,
+    "warehouseCity": "TESTVILLE",
+    "warehouseState": "ZZ",
+    "warehouseCountry": "US",
+    "warehousePostalCode": "00000",
+    "registerNumber": 1,
+    "transactionNumber": 106,
+    "operatorNumber": 42,
+    "companyNumber": 1,
+    "membershipNumber": "000000000000",
+    "totalItemCount": 0,
+    "subTaxes": {
+      "aTaxPercent": null,
+      "aTaxAmount": 0.0,
+      "bTaxAmount": null,
+      "cTaxAmount": null,
+      "dTaxAmount": null
+    },
+    "couponArray": [],
+    "tenderArray": [
+      {
+        "tenderDescription": "VISA",
+        "tenderTypeCode": "061",
+        "amountTender": 0.0,
+        "displayAccountNumber": "0000",
+        "tenderTypeName": null,
+        "tenderEntryMethodDescription": null,
+        "tenderAcctTxnNumber": null,
+        "tenderAuthorizationCode": null
+      }
+    ],
+    "itemArray": []
+  }
+]

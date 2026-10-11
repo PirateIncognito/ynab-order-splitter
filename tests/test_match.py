@@ -316,7 +316,6 @@ def test_review_last_results_reviews_the_plugins_matched_file(monkeypatch, tmp_p
     monkeypatch.setattr(match.review, "review_transactions", lambda path, *args: reviewed.append(path))
     monkeypatch.setattr(match.push, "push_approved", lambda path, token, budget_id: pushed.append((path, budget_id)))
     monkeypatch.setattr(match.config, "get_ynab_access_token", lambda: "token")
-    monkeypatch.setattr(match.ynab_client, "list_payees", lambda token, budget_id: [])
     FakePlugin.matched_path.write_text(
         json.dumps({"budget_id": "budget-1", "transactions": [{"id": "t1", "split_status": "exact"}]})
     )

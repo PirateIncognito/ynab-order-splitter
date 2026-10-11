@@ -63,3 +63,8 @@ ynabuddy.log
 /release/
 /PLAN.md
 /my-ynab-tool.md
+
+# Costco receipt exports (Costco-Receipt-Downloader) and the Costco plan --
+# real order data / personal notes, never committed
+plugins/costco.com/costco-receipts-*.json
+plugins/costco.com/COSTCO PLUGIN PLAN.md
