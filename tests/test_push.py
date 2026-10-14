@@ -85,6 +85,19 @@ def test_approving_again_replaces_the_queued_entry(queue_path):
     assert entries[1]["split_lines"] == [{"amount": -3000, "memo": "Mop", "category_id": "home"}]
 
 
+def test_unqueue_removes_only_that_entry(queue_path):
+    push.unqueue(queue_path, "t1")
+    assert not queue_path.exists()
+    push.queue(queue_path, BUDGET, _matched("t1"))
+    push.queue(queue_path, BUDGET, _matched("t2"))
+    before = queue_path.read_text()
+
+    push.unqueue(queue_path, "unknown")
+    assert queue_path.read_text() == before
+    push.unqueue(queue_path, "t1")
+    assert _queued(queue_path) == ["t2"]
+
+
 def test_entries_for_another_budget_stay_queued_unpushed(queue_path, monkeypatch, caplog):
     ynab = FakeYnab(monkeypatch, [_in_ynab("t1")])
     push.queue(queue_path, BUDGET, _matched("t1"))

@@ -134,13 +134,25 @@ def configure_vendor_mapping(plugin: VendorPlugin) -> None:
             log.warning("No open budget accounts found; falling back to payee search.")
             mapping["mode"] = "payee"
         else:
-            options = [
-                (f"{a.name} ({a.type.value}) -- balance: {milliunits_to_dollars(a.balance):,.2f}", a)
-                for a in open_accounts
-            ]
             while True:
-                account = ui.choose(f"Select an account for {vendor_name}", options)
-                if account is None:
+                account = ui.pick_numbered(
+                    f"Account number for {vendor_name}",
+                    ["Account", "Type", "Balance"],
+                    [
+                        [
+                            f"{a.name} (added)" if str(a.id) in mapping["account_ids"] else a.name,
+                            a.type.value,
+                            f"{milliunits_to_dollars(a.balance):,.2f}",
+                        ]
+                        for a in open_accounts
+                    ],
+                    ("left", "left", "right"),
+                    [["", "muted", "out" if a.balance < 0 else "in"] for a in open_accounts],
+                    open_accounts,
+                )
+                if account is None:  # back: keep the accounts already added, if any
+                    if mapping["account_ids"]:
+                        break
                     return
                 if str(account.id) not in mapping["account_ids"]:
                     mapping["account_ids"].append(str(account.id))

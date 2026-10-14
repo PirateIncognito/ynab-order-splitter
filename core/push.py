@@ -44,6 +44,13 @@ def queue(path: Path, budget_id: str, transaction: dict) -> None:
     path.write_text(json.dumps(entries, indent=2))
 
 
+def unqueue(path: Path, transaction_id: str) -> None:
+    """Remove the entry for `transaction_id` from the queue at `path`, if there is one."""
+    if path.exists():
+        entries = json.loads(path.read_text())
+        path.write_text(json.dumps([e for e in entries if e["id"] != transaction_id], indent=2))
+
+
 def for_budget(queued: list[dict], budget_id: str) -> list[dict]:
     """The entries of `queued` (the queue file's list) for budget `budget_id`."""
     return [e for e in queued if e["budget_id"] == budget_id]

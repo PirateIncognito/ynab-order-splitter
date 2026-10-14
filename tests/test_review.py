@@ -667,3 +667,61 @@ def test_the_agent_is_asked_about_a_saved_merged_lines_items_not_its_memo(tmp_pa
 
     assert asked == ["Items:\n1. Milk\n2. Eggs"]
     assert set(json.loads((tmp_path / "amazon.com_categories.json").read_text())) == {"Milk", "Eggs"}
+
+
+def _queued(tmp_path) -> list[dict]:
+    path = tmp_path / "amazon.com_ynab_approved.json"
+    return json.loads(path.read_text()) if path.exists() else []
+
+
+def test_back_to_an_approved_one_edited_and_approved_again_queues_it_once(tmp_path, monkeypatch):
+    first, _ = _review(tmp_path, monkeypatch, [_transaction("Mop"), _transaction("Tea")],
+                       keys=["e", "a", "p", "e", "a", "q"], typed=["home", "groc"])
+
+    [entry] = _queued(tmp_path)
+    assert entry["id"] == first["id"]
+    assert entry["split_lines"][0]["category_id"] == "groceries"
+
+
+def test_back_to_an_approved_one_and_skip_takes_it_out_of_the_queue(tmp_path, monkeypatch):
+    first, _ = _review(tmp_path, monkeypatch, [_transaction("Mop"), _transaction("Tea")],
+                       keys=["e", "a", "p", "s", "q"], typed=["home"])
+
+    assert first["review_status"] == "skipped"
+    assert _queued(tmp_path) == []
+
+
+def test_back_to_a_skipped_one_and_approve_queues_it(tmp_path, monkeypatch):
+    first, _ = _review(tmp_path, monkeypatch, [_categorized(("Mop", "supplies")), _transaction("Tea")],
+                       keys=["s", "p", "a", "q"])
+
+    assert first["review_status"] == "approved"
+    assert [entry["id"] for entry in _queued(tmp_path)] == [first["id"]]
+
+
+def test_back_on_the_first_one_says_so_and_stays(tmp_path, monkeypatch, capsys):
+    first, second = _review(tmp_path, monkeypatch, [_transaction("Mop"), _transaction("Tea")], keys=["p", "s", "q"])
+
+    assert "Nothing to go back to." in capsys.readouterr().out
+    assert first["review_status"] == "skipped"
+    assert "review_status" not in second
+
+
+def test_back_puts_back_the_screens_edits_and_their_table_entries(tmp_path, monkeypatch):
+    table_path = tmp_path / "amazon.com_categories.json"
+    table_path.write_text(json.dumps({"Tea": {"category": "supplies", "by": "agent"}}))
+
+    _, second = _review(tmp_path, monkeypatch, [_transaction("Mop"), _transaction("Tea", "Milk")],
+                        keys=["s", "e", "a", "p", "q"], typed=["groc"])  # [e], a: every line
+
+    assert [line["category_id"] for line in second["split_lines"]] == ["supplies", None]
+    assert json.loads(table_path.read_text()) == {"Tea": {"category": "supplies", "by": "agent"}}
+
+
+def test_quit_on_an_approved_one_puts_back_its_edit_so_saved_and_queued_agree(tmp_path, monkeypatch):
+    first, _ = _review(tmp_path, monkeypatch, [_transaction("Mop"), _transaction("Tea")],
+                       keys=["e", "a", "p", "e", "q"], typed=["home", "groc"])
+
+    [entry] = _queued(tmp_path)
+    assert first["split_lines"] == entry["split_lines"]
+    assert entry["split_lines"][0]["category_id"] == "supplies"

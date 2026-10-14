@@ -157,8 +157,9 @@ sequenceDiagram
     loop each split transaction not yet approved, newest first, until [q]
         R->>R: if its items are pending: "Waiting for Agent suggestions..."<br/>until answered or failed
         R->>R: fill uncategorized lines from the plugin's category table
-        R->>R: one screen, one option per line: [a] approve (every line categorized),<br/>[e] edit category (line, then category with autocomplete), [s] skip,<br/>[m] merge (lines of one category into one, memos joined),<br/>[d] divide (a line, or the whole amount, into two halves),<br/>[u] undo (this screen's last [e], [d] or [m], in memory only),<br/>[o] open order in browser (vendor_match.link), [q] quit
+        R->>R: one screen, one option per line: [a] approve (every line categorized),<br/>[e] edit category (line, then category with autocomplete), [s] skip,<br/>[p] previous (to the previous transaction of this review, its outcome in the header;<br/>puts back this screen's changes),<br/>[m] merge (lines of one category into one, memos joined),<br/>[d] divide (a line, or the whole amount, into two halves),<br/>[u] undo (this screen's last [e], [d] or [m], in memory only),<br/>[o] open order in browser (vendor_match.link), [q] quit (on one approved earlier: puts them back too)
         R->>Q: on [a]: queue(amazon.com_ynab_approved.json) -- id, budget,<br/>date, amount, split lines or whole category,<br/>order number; replaces an earlier entry
+        R->>Q: on [s] of one approved earlier: unqueue(amazon.com_ynab_approved.json, id)
     end
     R->>R: save review_status (+ categories) into the file,<br/>and the category table ([e] and [a] set "user";<br/>a merged line's items, on [a] only);<br/>the agent stops after its current call, writing nothing more
 

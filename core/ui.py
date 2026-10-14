@@ -181,8 +181,11 @@ def show_background_messages() -> None:
 def choose(message: str, options: list[tuple[str, Any]], back_label: str | None = None) -> Any:
     """Ask the user to pick one of `options` ((label, value) pairs) and
     return its value. With `back_label`, a Back/Exit option is added (on
-    the 0 key); picking it returns None."""
-    choices = [Choice(label, value=value, shortcut_key=key) for (label, value), key in zip(options, _MENU_KEYS)]
+    the 0 key); picking it returns None. A label's later lines are indented
+    to start under its first line's text, past the " » 1) " prefix."""
+    prefix = " " * (3 if NAVIGATION == "arrows" else 6)  # no "1) " without shortcuts
+    choices = [Choice(label.replace("\n", "\n" + prefix), value=value, shortcut_key=key)
+               for (label, value), key in zip(options, _MENU_KEYS)]
     if back_label:
         choices.append(Choice(back_label, value=_BACK, shortcut_key="0"))
     if NAVIGATION == "type number":
@@ -214,6 +217,34 @@ def text(message: str, default: str = "", validate: Callable[[str], bool | str] 
     """Ask for a line of text. `validate` returns True, or an error message
     to show while the user corrects their answer."""
     return questionary.text(message, default=default, validate=validate, style=_style()).ask()
+
+
+def pick_numbered(
+    message: str,
+    headers: list[str],
+    rows: list[list[str]],
+    align: tuple[str, ...],
+    roles: list[list[str]],
+    values: list[Any],
+) -> Any:
+    """Print `rows` as a table (see print_table), numbered from 1, and ask
+    for a row's number; return that row's value from `values` (same order
+    as `rows`), or None on an empty answer (back) or Ctrl+C. Unlike
+    choose(), every row is listed however many there are, and the list
+    stays printed above the prompt, so it can be scrolled back."""
+    n = len(rows)
+    print_table(
+        ["#", *headers],
+        [[str(i), *row] for i, row in enumerate(rows, 1)],
+        ("right", *align),
+        [["muted", *row_roles] for row_roles in roles],
+    )
+    print()
+    answer = text(
+        f"{message} (1-{n}), or Enter to go back:",
+        validate=lambda s: not s or s.isdecimal() and 1 <= int(s) <= n or f"A number from 1 to {n}.",
+    )
+    return values[int(answer) - 1] if answer else None
 
 
 def secret(message: str, required: bool = True) -> str | None:

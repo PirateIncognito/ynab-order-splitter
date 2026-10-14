@@ -3,7 +3,7 @@
 Console app that matches vendor order data (i.e. Amazon, Costco) to
 [YNAB](https://www.ynab.com) transactions, splits each transaction by the items bought, helps you categorize the lines, and writes the approved splits back to YNAB.
 
-What it does today (v1.1.0; changes in `CHANGELOG.md`):
+What it does today (v1.2.0; changes in `CHANGELOG.md`):
 
 - **Amazon data**: scrapes your Amazon order history and card charges with
   [amazon-orders](https://github.com/alexdlaird/amazon-orders). Whole Foods
@@ -18,12 +18,14 @@ What it does today (v1.1.0; changes in `CHANGELOG.md`):
   discounts and rounding are spread over the items (sales tax on its own
   line is an option, off by default).
 - **Review screen**, one key per action:
-  `[a]` approve, `[e]` edit category, `[s]` skip, `[m]` merge identical categories,
-  `[d]` divide, `[u]` undo last change, `[o]` open order in browser, `[q]` quit
+  `[a]` approve, `[e]` edit category, `[s]` skip, `[p]` previous transaction,
+  `[m]` merge identical categories, `[d]` divide, `[u]` undo last change,
+  `[o]` open order in browser, `[q]` quit
   -- edit categories with autocomplete; a per-plugin item -> category
   table remembers your choices. Merge folds lines that share a category
   into one; undo steps back through edits, divides and merges on the
-  transaction on screen.
+  transaction on screen; previous revisits the transactions approved or
+  skipped earlier in this review (nothing is pushed until it ends).
 - **AI suggestions (optional)**: Claude, OpenAI or Gemini suggest categories
   for new items in the background; you approve every one.
 - **Memos**: Settings > Memos picks what goes into YNAB memos: none, the

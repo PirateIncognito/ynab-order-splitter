@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.0 -- 2026-10-13
+
+### Added
+- **Review screen: `[p]` previous transaction** -- goes back to the
+  previous transaction of this review, approved or skipped, and shows
+  its earlier outcome. `[a]` approves it again with any changes, `[s]`
+  takes it out of the push queue. Nothing is pushed until the review
+  ends, so any of them can still be changed.
+
+### Changed
+- **Plugin account mapping lists accounts by number** -- every open
+  account is printed as a table (name, type, balance) and picked by
+  typing its number; budgets with more than 35 accounts can now pick
+  all of them. Accounts already added are marked "(added)".
+
+### Fixed
+- Settings menu: detail lines line up under their heading instead of
+  under its number.
+
 ## 1.1.0 -- 2026-10-11
 
 ### Added

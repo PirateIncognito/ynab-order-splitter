@@ -110,7 +110,7 @@ def _plugins_menu() -> None:
 
 def _with_details(heading: str, lines: list[str]) -> str:
     """A menu label with indented detail lines under it."""
-    return heading + "".join(f"\n    {line}" for line in lines)
+    return heading + "".join(f"\n  {line}" for line in lines)
 
 
 def _colours_label() -> str:

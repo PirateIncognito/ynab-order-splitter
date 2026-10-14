@@ -2,7 +2,9 @@
 <plugin>_ynab_matched.json, newest first, where the user categorizes its split
 lines (dividing a line into two halves for two categories, or merging
 the lines of one category into one; [u] undoes the last edit, divide or
-merge), and approves or skips it, a single key press each.
+merge), and approves or skips it, a single key press each. [p] goes back
+to the previous transaction of this review, whatever was done with it:
+[a] queues it again, [s] takes it out of the queue.
 
 Uncategorized lines are filled from the plugin's category table (item
 description -> {"category": id, "by": "user" | "agent"}). Every category
@@ -101,10 +103,11 @@ def _draw(t: dict, position: int, total: int, names: dict[str, str]) -> None:
     ui.clear_screen()
     ui.show_background_messages()
     amount = t["amount"]
+    earlier = f"  ({t['review_status']} earlier)" if "review_status" in t else ""
     print(ui.styled([
         ("title", f"[{position}/{total}]  {t['date']}  {t['payee_name']}  "),
         ("out" if amount < 0 else "in", _money(amount)),
-        ("muted", f"  order {t['vendor_match']['source_id'] or '(none)'}"),
+        ("muted", f"  order {t['vendor_match']['source_id'] or '(none)'}{earlier}"),
     ]))
     if t["match_status"] == "ambiguous":
         print(ui.styled([("warn", f"  ! AMBIGUOUS MATCH: {t['match_reason']}")]))
@@ -223,10 +226,28 @@ def _merge(transaction: dict, names: dict[str, str]) -> bool:
 def _review_one(transaction: dict, position: int, total: int, labels: dict[str, str], names: dict[str, str],
                 table: dict[str, dict]) -> str | None:
     """Show `transaction` until the user approves or skips it ("approved" /
-    "skipped"); None if they quit. [u] undoes this screen's [e]dits,
-    [d]ivides and [m]erges, last first, back to how the screen began (in
-    memory only; an undone [e] also takes its category back out of the table)."""
+    "skipped"), goes back to the previous one ("back", not at `position` 1);
+    None if they quit. [u] undoes this screen's [e]dits, [d]ivides and
+    [m]erges, last first, back to how the screen began (in memory only; an
+    undone [e] also takes its category back out of the table). [p], and [q]
+    on a transaction approved earlier, undo them all first, so its lines
+    stay as queued."""
     undo = []  # (split_lines, review_category_id, table entries of its items) before each [e], [d] or [m]
+
+    def restore(snapshot: tuple) -> None:
+        lines, category_id, entries = snapshot
+        with categorize.lock:
+            transaction["split_lines"][:] = lines
+            if category_id is None:
+                transaction.pop("review_category_id", None)
+            else:
+                transaction["review_category_id"] = category_id
+            for name, entry in entries.items():
+                if entry is None:
+                    table.pop(name, None)
+                else:
+                    table[name] = entry
+
     _draw(transaction, position, total, names)
     while True:
         key = ui.key(
@@ -234,13 +255,14 @@ def _review_one(transaction: dict, position: int, total: int, labels: dict[str, 
                 "[a] approve",
                 "[e] edit category",
                 "[s] skip",
+                "[p] previous transaction",
                 "[m] merge identical categories",
                 "[d] divide (split a sub-transaction in half)",
                 "[u] undo last change",
                 "[o] open order in browser",
                 "[q] quit",
             ]),
-            "aesmduoq",
+            "aespmduoq",
         )
         if key == "a":
             missing = missing_categories(transaction, names)
@@ -266,18 +288,7 @@ def _review_one(transaction: dict, position: int, total: int, labels: dict[str, 
                 print("Nothing to merge: no two lines share a category.")
         elif key == "u":
             if undo:
-                lines, category_id, entries = undo.pop()
-                with categorize.lock:
-                    transaction["split_lines"][:] = lines
-                    if category_id is None:
-                        transaction.pop("review_category_id", None)
-                    else:
-                        transaction["review_category_id"] = category_id
-                    for name, entry in entries.items():
-                        if entry is None:
-                            table.pop(name, None)
-                        else:
-                            table[name] = entry
+                restore(undo.pop())
                 prefill(transaction, table, names)
                 _draw(transaction, position, total, names)
             else:
@@ -292,14 +303,24 @@ def _review_one(transaction: dict, position: int, total: int, labels: dict[str, 
                 print("Couldn't open a browser.")
         elif key == "s":
             return "skipped"
+        elif key == "p":
+            if position == 1:
+                print("Nothing to go back to.")
+                continue
+            if undo:
+                restore(undo[0])
+            return "back"
         else:  # q, or Ctrl+C
+            if undo and transaction.get("review_status") == "approved":
+                restore(undo[0])
             return None
 
 
 def review_transactions(results_path: Path, categories: list[Category], table_path: Path, approved_path: Path,
                         ask: Callable[[str, str, dict], dict] | None) -> None:
     """Review every split transaction in `results_path` (<plugin>_ynab_matched.json)
-    not approved yet, newest first, until the user quits; save the outcomes
+    not approved yet, newest first, until the user quits ([p] steps back
+    through the ones done in this review); save the outcomes
     and the plugin's category table (`table_path`), and queue each approved
     transaction in `approved_path` as it is approved. With `ask` (an
     agents.ask_* function; None for AI off), the agent categorizes the
@@ -317,7 +338,9 @@ def review_transactions(results_path: Path, categories: list[Category], table_pa
     if agent:
         agent.thread.start()
     try:
-        for position, t in enumerate(to_review, 1):
+        position = 1
+        while position <= len(to_review):
+            t = to_review[position - 1]
             if agent:
                 try:
                     agent.wait([item for line in t["split_lines"] for item in categorize.item_names(line)])
@@ -327,6 +350,11 @@ def review_transactions(results_path: Path, categories: list[Category], table_pa
             outcome = _review_one(t, position, len(to_review), labels, names, table)
             if outcome is None:
                 break
+            if outcome == "back":
+                position -= 1
+                continue
+            if outcome == "skipped" and t.get("review_status") == "approved":
+                push.unqueue(approved_path, t["id"])
             t["review_status"] = outcome
             if outcome == "approved":
                 push.queue(approved_path, data["budget_id"], t)
@@ -334,6 +362,7 @@ def review_transactions(results_path: Path, categories: list[Category], table_pa
                     for line in t["split_lines"]:
                         for item in categorize.item_names(line):
                             table[item] = {"category": line["category_id"], "by": "user"}
+            position += 1
     finally:  # keep what was done, even if the review fails partway
         if agent:
             agent.stopped = True
