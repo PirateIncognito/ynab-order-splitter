@@ -6,7 +6,8 @@ queue at the end of each review only (user 2026-10-07: not at start or
 exit); a declined queue waits for the next review. Right before writing it
 re-reads the queued
 transactions and the categories from YNAB, and skips any that changed
-meanwhile. An entry leaves the queue only once YNAB confirms it.
+meanwhile. An entry leaves the queue only once YNAB confirms it; the ids
+it confirms are kept in the plugin's pushed_path (<plugin>_ynab_pushed.json).
 """
 
 import datetime
@@ -114,13 +115,15 @@ def _reason(e: Exception) -> str:
     return ynab_client.describe_api_error(e) if isinstance(e, ApiException) else str(e)
 
 
-def push_approved(path: Path, access_token: str, budget_id: str) -> None:
+def push_approved(path: Path, pushed_path: Path, access_token: str, budget_id: str) -> None:
     """Write the approved transactions queued at `path` for budget
     `budget_id` (the one selected in Settings) to YNAB, after asking, and
     remove each from the queue once YNAB confirms it. One that is deleted,
     missing or already split in YNAB, or whose date, amount or categories
     changed, leaves the queue unwritten (a changed one with a message to
-    match and approve it again). Entries for another budget stay queued."""
+    match and approve it again). Entries for another budget stay queued.
+    The ids YNAB confirms written are added to the list at `pushed_path`
+    (<plugin>_ynab_pushed.json), which `nonsplit` matching skips."""
     queued = json.loads(path.read_text()) if path.exists() else []
     entries = for_budget(queued, budget_id)
     if len(entries) < len(queued):
@@ -162,20 +165,23 @@ def push_approved(path: Path, access_token: str, budget_id: str) -> None:
             continue
         done.add(e["id"])
 
-    error = None
+    error, written = None, []
     memos = user_prefs.load_user_prefs()["memos"]
     todo = batches([_payload(e, current[e["id"]], memos) for e in to_write])
     for n, batch in enumerate(todo, 1):
         try:
-            done.update(ynab_client.update_transactions(access_token, budget_id, batch))
+            written += ynab_client.update_transactions(access_token, budget_id, batch)
         except Exception as e:  # YNAB error, offline, invalid data
             error = e  # a 500 near 30 s may still have been saved: the next push re-reads first
             break
-        log.info(f"Progress on pushing: batch {n} of {len(todo)}, {len(done) - dropped - flagged} written")
+        log.info(f"Progress on pushing: batch {n} of {len(todo)}, {len(written)} written")
 
+    done.update(written)
     left = [e for e in queued if e["id"] not in done]
     path.write_text(json.dumps(left, indent=2))
-    counts = f"{len(done) - dropped - flagged} written, {dropped} dropped, {flagged} flagged"
+    pushed = json.loads(pushed_path.read_text()) if pushed_path.exists() else []
+    pushed_path.write_text(json.dumps(pushed + [i for i in written if i not in pushed], indent=2))
+    counts = f"{len(written)} written, {dropped} dropped, {flagged} flagged"
     if error:
         log.error(
             f"Failed pushing to YNAB: {_reason(error)}; {counts}, "

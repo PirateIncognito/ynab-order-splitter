@@ -98,6 +98,7 @@ class CostcoPlugin(VendorPlugin):
     categories_path = PLUGIN_DIR / "costco.com_categories.json"
     matched_path = PLUGIN_DIR / "costco.com_ynab_matched.json"
     approved_path = PLUGIN_DIR / "costco.com_ynab_approved.json"
+    pushed_path = PLUGIN_DIR / "costco.com_ynab_pushed.json"
     scrapes_vendor_data = False
 
     # The receipts that can be matched, merged again only when the exports

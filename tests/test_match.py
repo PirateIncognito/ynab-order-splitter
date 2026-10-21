@@ -37,7 +37,7 @@ class FakeTransaction:
 class FakePlugin:
     name = "amazon.com"
     scrapes_vendor_data = False
-    matched_path = None  # tests set a tmp path
+    matched_path = pushed_path = None  # tests set a tmp path
 
     def __init__(self, prefs=None, vendor_transactions=None, scrape_error=None, match_error=None):
         self._prefs = prefs or {}
@@ -217,13 +217,16 @@ def test_plugin_error_keeps_results_so_far(monkeypatch, tmp_path, caplog):
 def test_match_transactions_for_plugin_filters_nonsplit_run_mode(monkeypatch, tmp_path):
     split_txn = FakeTransaction("t1", datetime.date(2026, 1, 10), -5000, subtransactions=[{"amount": -5000}])
     plain_txn = FakeTransaction("t2", datetime.date(2026, 1, 10), -3000, subtransactions=[])
-    _stub_ynab(monkeypatch, tmp_path, [split_txn, plain_txn])
+    pushed_txn = FakeTransaction("t3", datetime.date(2026, 1, 10), -2000, subtransactions=[])  # pushed as one line
+    _stub_ynab(monkeypatch, tmp_path, [split_txn, plain_txn, pushed_txn])
 
     plugin = FakePlugin(prefs={"mode": "payee", "payee_name": "Amazon.com", "run_mode": "nonsplit"})
+    plugin.pushed_path = tmp_path / "amazon.com_ynab_pushed.json"
+    plugin.pushed_path.write_text(json.dumps(["t3"]))
 
     match.match_transactions_for_plugin("token", "budget-1", plugin, vendor_lookback_margin_days=7, window_days=0)
 
-    assert set(_saved_results(tmp_path)) == {"t2"}  # split_txn excluded by nonsplit run mode
+    assert set(_saved_results(tmp_path)) == {"t2"}  # split_txn and pushed_txn excluded by nonsplit run mode
 
 
 def test_match_transactions_for_plugin_triggers_scrape_for_scraping_plugins(monkeypatch, tmp_path):
@@ -293,7 +296,7 @@ def test_review_last_results_with_only_a_queue_pushes_without_reviewing(monkeypa
     monkeypatch.setattr(match.config, "get_ynab_access_token", lambda: "token")
     monkeypatch.setattr(match.review, "review_transactions", lambda *args: pytest.fail("must not review"))
     pushed = []
-    monkeypatch.setattr(match.push, "push_approved", lambda path, token, budget_id: pushed.append((path, budget_id)))
+    monkeypatch.setattr(match.push, "push_approved", lambda path, pushed_path, token, budget_id: pushed.append((path, budget_id)))
     FakePlugin.matched_path.write_text(
         json.dumps({"budget_id": "other-budget", "transactions": [{"id": "t1", "split_status": "exact"}]})
     )
@@ -314,7 +317,7 @@ def test_review_last_results_reviews_the_plugins_matched_file(monkeypatch, tmp_p
     monkeypatch.setattr(match.categorize, "chosen_ask", lambda: None)
     reviewed, pushed = [], []
     monkeypatch.setattr(match.review, "review_transactions", lambda path, *args: reviewed.append(path))
-    monkeypatch.setattr(match.push, "push_approved", lambda path, token, budget_id: pushed.append((path, budget_id)))
+    monkeypatch.setattr(match.push, "push_approved", lambda path, pushed_path, token, budget_id: pushed.append((path, budget_id)))
     monkeypatch.setattr(match.config, "get_ynab_access_token", lambda: "token")
     FakePlugin.matched_path.write_text(
         json.dumps({"budget_id": "budget-1", "transactions": [{"id": "t1", "split_status": "exact"}]})

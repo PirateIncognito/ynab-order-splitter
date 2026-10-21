@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.1 -- 2026-10-20
+
+### Fixed
+- **All-transactions run mode no longer re-offers pushed transactions** --
+  a transaction pushed with one category (no split) looked untouched in
+  YNAB, so every later run in that mode matched it and asked to review
+  it again. Each plugin now keeps the ids it has pushed in
+  `plugins/<plugin>/<plugin>_ynab_pushed.json` and skips them; delete
+  that file to have them offered again. Transactions pushed before 1.2.1
+  are offered once more, then remembered. Unapproved-only mode was not
+  affected.
+
 ## 1.2.0 -- 2026-10-13
 
 ### Added

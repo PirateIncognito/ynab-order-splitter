@@ -149,8 +149,9 @@ def match_transactions_for_plugin(
         access_token, budget_id, since_date=datetime.date.min, unapproved_only=(run_mode == "unapproved")
     )
     candidates = [t for t in transactions if _matches_mapping(t, prefs)]
-    if run_mode == "nonsplit":
-        candidates = [t for t in candidates if not t.subtransactions]
+    if run_mode == "nonsplit":  # a pushed one-line transaction isn't split either: skip it by id
+        pushed = set(json.loads(plugin.pushed_path.read_text())) if plugin.pushed_path.exists() else set()
+        candidates = [t for t in candidates if not t.subtransactions and str(t.id) not in pushed]
     earliest = min(t.var_date for t in candidates).isoformat() if candidates else "none"
     log.info(
         f"Succeeded with YNAB transactions: {len(candidates)} candidate(s) for {plugin.name} "
@@ -222,7 +223,7 @@ def run_cycle_for_plugin(plugin: VendorPlugin) -> None:
         review.review_transactions(
             results_path, categories, plugin.categories_path, plugin.approved_path, categorize.chosen_ask()
         )
-        push.push_approved(plugin.approved_path, token, budget_id)
+        push.push_approved(plugin.approved_path, plugin.pushed_path, token, budget_id)
     except ApiException as e:
         log.error(f"Failed {label} match and split: YNAB API error: {ynab_client.describe_api_error(e)}")
 
@@ -260,4 +261,4 @@ def review_last_results(plugin: VendorPlugin) -> None:
         review.review_transactions(
             plugin.matched_path, categories, plugin.categories_path, plugin.approved_path, categorize.chosen_ask()
         )
-    push.push_approved(plugin.approved_path, token, budget_id)
+    push.push_approved(plugin.approved_path, plugin.pushed_path, token, budget_id)

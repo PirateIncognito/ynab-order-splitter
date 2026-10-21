@@ -75,6 +75,14 @@ def _queued(path) -> list[str]:
     return [e["id"] for e in json.loads(path.read_text())]
 
 
+def _push(queue_path):
+    push.push_approved(queue_path, queue_path.with_name("amazon.com_ynab_pushed.json"), "token", BUDGET)
+
+
+def _pushed(queue_path) -> list[str]:
+    return json.loads(queue_path.with_name("amazon.com_ynab_pushed.json").read_text())
+
+
 def test_approving_again_replaces_the_queued_entry(queue_path):
     push.queue(queue_path, BUDGET, _matched("t1"))
     push.queue(queue_path, BUDGET, _matched("t2"))
@@ -103,7 +111,7 @@ def test_entries_for_another_budget_stay_queued_unpushed(queue_path, monkeypatch
     push.queue(queue_path, BUDGET, _matched("t1"))
     push.queue(queue_path, "other-budget", _matched("t2"))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     assert [[t["id"] for t in batch] for batch in ynab.patches] == [["t1"]]
     assert _queued(queue_path) == ["t2"]
@@ -116,8 +124,8 @@ def test_declined_writes_nothing_and_is_offered_again(queue_path, monkeypatch):
     asked = []
     monkeypatch.setattr(ui, "key", lambda message, keys: asked.append(message) or "n")
 
-    push.push_approved(queue_path, "token", BUDGET)
-    push.push_approved(queue_path, "token", BUDGET)  # e.g. at the next start
+    _push(queue_path)
+    _push(queue_path)  # e.g. at the next start
 
     assert asked == ["Push 1 approved transaction(s) to YNAB? (y/n)"] * 2
     assert ynab.patches == []
@@ -137,7 +145,7 @@ def test_safeguard_writes_only_unchanged_transactions(queue_path, monkeypatch, c
         push.queue(queue_path, BUDGET, _matched(id))
     push.queue(queue_path, BUDGET, _matched("gone-category", lines=((-3000, "Mop", "retired"),)))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     assert [[t["id"] for t in batch] for batch in ynab.patches] == [["ok"]]
     assert _queued(queue_path) == []
@@ -149,7 +157,7 @@ def test_payload_approves_and_splits_by_the_reviewed_lines(queue_path, monkeypat
     push.queue(queue_path, BUDGET, _matched("split"))
     push.queue(queue_path, BUDGET, {**_matched("whole", amount=-500, lines=()), "review_category_id": "food"})
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[split, whole]] = ynab.patches
     assert split["approved"] is True
@@ -170,7 +178,7 @@ def test_memos_follow_the_setting(queue_path, monkeypatch, memos, parent, line_m
     push.queue(queue_path, BUDGET, _matched("split"))
     push.queue(queue_path, BUDGET, _matched("one", lines=((-3000, "Mop", "home"),)))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[split, one]] = ynab.patches
     assert split.get("memo") == parent
@@ -185,7 +193,7 @@ def test_a_memo_already_in_ynab_is_never_overwritten(queue_path, monkeypatch, me
     push.queue(queue_path, BUDGET, _matched("split"))
     push.queue(queue_path, BUDGET, _matched("one", lines=((-3000, "Mop", "home"),)))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[split, one]] = ynab.patches
     assert "memo" not in split and "memo" not in one
@@ -200,7 +208,7 @@ def test_a_merged_line_gets_no_item_memo(queue_path, monkeypatch):
     ]})
     push.queue(queue_path, BUDGET, {**_matched("one", amount=-2000), "split_lines": [merged]})
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[split, one]] = ynab.patches
     assert [s.get("memo") for s in split["subtransactions"]] == [None, "Tea"]
@@ -215,7 +223,7 @@ def test_an_entry_queued_before_memos_pushes_without_one(queue_path, monkeypatch
     del entries[0]["order_number"]
     queue_path.write_text(json.dumps(entries))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[t1]] = ynab.patches
     assert "memo" not in t1
@@ -228,7 +236,7 @@ def test_split_memos_are_cut_to_50_characters_but_kept_whole_in_the_queue(queue_
     ynab = FakeYnab(monkeypatch, [_in_ynab("split")], fail=ApiException(status=500))  # failed: stays queued
     push.queue(queue_path, BUDGET, _matched("split", lines=((-2000, long, "food"), (-1000, "Tea", "food"))))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[split]] = ynab.patches
     assert [s["memo"] for s in split["subtransactions"]] == [long[:50], "Tea"]
@@ -243,7 +251,7 @@ def test_push_sends_no_payee(queue_path, monkeypatch):
     entries[0]["payee_id"] = "p-whole-foods"  # queued while the review still had [p]ayee
     queue_path.write_text(json.dumps(entries))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[old, new]] = ynab.patches
     assert "subtransactions" in old and "subtransactions" in new
@@ -257,7 +265,7 @@ def test_one_line_is_pushed_unsplit_with_its_category_and_memo(queue_path, monke
     ynab = FakeYnab(monkeypatch, [_in_ynab("one")])
     push.queue(queue_path, BUDGET, _matched("one", lines=((-3000, long, "food"),)))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     [[one]] = ynab.patches
     assert one == {"id": "one", "approved": True, "category_id": "food", "memo": long[:50]}
@@ -267,7 +275,7 @@ def test_a_failed_write_keeps_its_entries_queued(queue_path, monkeypatch, caplog
     FakeYnab(monkeypatch, [_in_ynab("t1")], fail=ApiException(status=500, reason="Internal Server Error"))
     push.queue(queue_path, BUDGET, _matched("t1"))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     assert _queued(queue_path) == ["t1"]
     assert "Failed pushing to YNAB" in caplog.text
@@ -278,7 +286,7 @@ def test_offline_keeps_the_queue_without_crashing(queue_path, monkeypatch, caplo
     FakeYnab(monkeypatch, [_in_ynab("t1")], fail=ConnectionError("network is unreachable"))
     push.queue(queue_path, BUDGET, _matched("t1"))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     assert _queued(queue_path) == ["t1"]
     assert "Failed pushing to YNAB: network is unreachable" in caplog.text
@@ -290,9 +298,33 @@ def test_only_ids_ynab_confirms_leave_the_queue(queue_path, monkeypatch):
     push.queue(queue_path, BUDGET, _matched("t1"))
     push.queue(queue_path, BUDGET, _matched("t2"))
 
-    push.push_approved(queue_path, "token", BUDGET)
+    _push(queue_path)
 
     assert _queued(queue_path) == ["t1"]
+
+
+def test_only_ids_ynab_confirms_are_kept_as_pushed(queue_path, monkeypatch):
+    FakeYnab(monkeypatch, [
+        _in_ynab("t1"), _in_ynab("t2"), _in_ynab("unconfirmed"), _in_ynab("new-amount", amount=-3500), _in_ynab("late"),
+    ])
+    replies = iter([["t1", "t2"], ApiException(status=500)])
+
+    def update_transactions(token, budget_id, transactions):
+        reply = next(replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(push.ynab_client, "update_transactions", update_transactions)
+    monkeypatch.setattr(push, "batches", lambda payloads: [payloads[:3], payloads[3:]])  # "late" alone, and it fails
+    for id in ("t1", "t2", "unconfirmed", "new-amount", "deleted", "late"):
+        push.queue(queue_path, BUDGET, _matched(id))
+    queue_path.with_name("amazon.com_ynab_pushed.json").write_text(json.dumps(["t1"]))  # pushed before, approved again
+
+    _push(queue_path)
+
+    assert _pushed(queue_path) == ["t1", "t2"]
+    assert _queued(queue_path) == ["unconfirmed", "late"]
 
 
 def test_batches_are_cut_by_payload_size():

@@ -123,7 +123,7 @@ sequenceDiagram
 
     M->>Y: list_transactions(unapproved_only = run_mode == "unapproved")
     Y-->>M: transactions
-    M->>M: keep candidates matching the plugin's account or payee<br/>(nonsplit mode: drop already-split ones)
+    M->>M: keep candidates matching the plugin's account or payee<br/>(nonsplit mode: drop already-split ones<br/>and the ids in amazon.com_ynab_pushed.json)
 
     opt plugin.scrapes_vendor_data and candidates exist
         M->>P: get_data_from_vendor(earliest candidate − lookback margin)
@@ -163,13 +163,13 @@ sequenceDiagram
     end
     R->>R: save review_status (+ categories) into the file,<br/>and the category table ([e] and [a] set "user";<br/>a merged line's items, on [a] only);<br/>the agent stops after its current call, writing nothing more
 
-    M->>Q: push_approved(amazon.com_ynab_approved.json, selected budget)
+    M->>Q: push_approved(amazon.com_ynab_approved.json,<br/>amazon.com_ynab_pushed.json, selected budget)
     Q->>Q: entries for another budget stay queued (one message);<br/>"Push N approved transaction(s) to YNAB? (y/n)" -- no: all stay queued
     Q->>Y: list_transactions(since earliest queued date), list_categories()
     Q->>Y: get_transaction(id) for each queued one not in that list
     Q->>Q: deleted / missing / already split: dropped from the queue;<br/>date or amount changed, or a category gone: flagged, leaves the queue
     Q->>Y: update_transactions(batch) -- one PATCH per ≤ 500 KB of JSON:<br/>approved + subtransactions (amount, category, memo; no payee),<br/>or one line: approved + its category, or approved + whole category;<br/>never a payee_id, even from an entry queued before [p] was removed; memos by Settings > Memos:<br/>order number on the transaction, or item names (not a merged line's),<br/>or none; a memo already in YNAB is never overwritten
-    Y-->>Q: ids saved → removed from the queue; an error keeps the rest<br/>(one bad item fails its whole PATCH, nothing saved)
+    Y-->>Q: ids saved → removed from the queue, added to amazon.com_ynab_pushed.json;<br/>an error keeps the rest (one bad item fails its whole PATCH, nothing saved)
 ```
 
 ## 4. Plugin SDK classes
@@ -179,7 +179,7 @@ classDiagram
     class VendorPlugin {
         <<abstract>>
         name, description, url
-        prefs_path, categories_path, matched_path, approved_path, default_prefs
+        prefs_path, categories_path, matched_path, approved_path, pushed_path, default_prefs
         scrapes_vendor_data = False
         settings() list~Setting~
         load_own_prefs()
@@ -259,6 +259,7 @@ flowchart LR
         amzcats["plugins/amazon.com/<br/>amazon.com_categories.json<br/>item → category, by user / agent"]
         results["plugins/amazon.com/<br/>amazon.com_ynab_matched.json<br/>match results + proposed splits + review"]
         approved["plugins/amazon.com/<br/>amazon.com_ynab_approved.json<br/>approved, waiting to be pushed to YNAB"]
+        pushed["plugins/amazon.com/<br/>amazon.com_ynab_pushed.json<br/>ids pushed to YNAB, skipped by nonsplit"]
         cosexports["plugins/costco.com/<br/>costco-receipts-*.json<br/>your Costco-Receipt-Downloader exports"]
         cosorders["plugins/costco.com/<br/>costco.com_order_data.json<br/>merged receipts (mode 600)"]
     end
@@ -271,10 +272,11 @@ flowchart LR
     config["core/config.py"] <--> coreenv & amzenv
     userprefs["core/user_prefs.py"] <--> up
     matchpy["core/match.py"] <--> cats & results
+    matchpy --> pushed
     splitpy["core/split.py"] <--> results
     reviewpy["core/review.py"] <--> results & amzcats
     reviewpy --> approved
-    pushpy["core/push.py"] <--> approved
+    pushpy["core/push.py"] <--> approved & pushed
     catpy["core/categorize.py"] <--> amzcats
     sdk["plugins/plugin.py<br/>load_own_prefs / save_own_prefs"] <--> amzprefs
     ps["core/plugin_settings.py<br/>shared settings"] --> sdk

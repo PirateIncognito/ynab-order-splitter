@@ -3,7 +3,7 @@
 Console app that matches vendor order data (i.e. Amazon, Costco) to
 [YNAB](https://www.ynab.com) transactions, splits each transaction by the items bought, helps you categorize the lines, and writes the approved splits back to YNAB.
 
-What it does today (v1.2.0; changes in `CHANGELOG.md`):
+What it does today (v1.2.1; changes in `CHANGELOG.md`):
 
 - **Amazon data**: scrapes your Amazon order history and card charges with
   [amazon-orders](https://github.com/alexdlaird/amazon-orders). Whole Foods
@@ -93,6 +93,7 @@ All per-install and gitignored:
   charges), `plugins/costco.com/costco.com_order_data.json` (merged Costco
   receipts), `plugins/<plugin>/<plugin>_ynab_matched.json` (latest match
   results and review progress), `plugins/<plugin>/<plugin>_ynab_approved.json`
-  (approved, waiting to be pushed), `plugins/<plugin>/<plugin>_categories.json`
-  (item -> category table).
+  (approved, waiting to be pushed), `plugins/<plugin>/<plugin>_ynab_pushed.json`
+  (ids already pushed, which the all-transactions run mode skips),
+  `plugins/<plugin>/<plugin>_categories.json` (item -> category table).
 - Status log: `ynabuddy.log`; Amazon debug snapshots (off by default): `output/`.

@@ -299,6 +299,7 @@ class AmazonPlugin(VendorPlugin):
     categories_path = PLUGIN_DIR / "amazon.com_categories.json"
     matched_path = PLUGIN_DIR / "amazon.com_ynab_matched.json"
     approved_path = PLUGIN_DIR / "amazon.com_ynab_approved.json"
+    pushed_path = PLUGIN_DIR / "amazon.com_ynab_pushed.json"
     default_prefs = DEFAULT_PREFS
     scrapes_vendor_data = True
 
